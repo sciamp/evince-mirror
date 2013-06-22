@@ -41,13 +41,21 @@ typedef struct _EvViewPresenterClass EvViewPresenterClass;
 GType           ev_view_presenter_get_type         (void) G_GNUC_CONST;
 GtkWidget      *ev_view_presenter_new              (EvDocument      *document,
                                                     guint            current_page,
+<<<<<<< HEAD
                                                     guint            rotation);
+=======
+                                                    guint            rotation,
+                                                    gboolean         inverted_colors);
+>>>>>>> c6ced242c6b21e7d47d5c277b44ea9aa78a739ef
 guint           ev_view_presenter_get_current_page (EvViewPresenter *self);
 void            ev_view_presenter_next_page        (EvViewPresenter *self);
 void            ev_view_presenter_previous_page    (EvViewPresenter *self);
 void            ev_view_presenter_set_rotation     (EvViewPresenter *self,
                                                     gint             rotation);
+<<<<<<< HEAD
 guint           ev_view_presenter_get_rotaion      (EvViewPresenter *self);
+=======
+>>>>>>> c6ced242c6b21e7d47d5c277b44ea9aa78a739ef
 
 G_END_DECLS
 

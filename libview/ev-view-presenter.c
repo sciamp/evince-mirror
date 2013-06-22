@@ -636,6 +636,7 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         g_object_unref (provider);
 }
+<<<<<<< HEAD
 
 GtkWidget *
 ev_view_presenter_new (EvDocument *document,
@@ -650,3 +651,5 @@ ev_view_presenter_new (EvDocument *document,
                                          "current_page", current_page,
                                          "rotation", rotation, NULL));
 }
+=======
+>>>>>>> c6ced242c6b21e7d47d5c277b44ea9aa78a739ef
