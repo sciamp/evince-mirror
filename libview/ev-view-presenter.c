@@ -68,8 +68,8 @@ static guint signals[N_SIGNALS] = { 0 };
 
 G_DEFINE_TYPE (EvViewPresenter, ev_view_presenter, GTK_TYPE_WIDGET)
 
-static GdkRGBA black = { 0., 0., 0., 1. };
-static GdkRGBA white = { 1., 1., 1., 1. };
+/* static GdkRGBA black = { 0., 0., 0., 1. }; */
+/* static GdkRGBA white = { 1., 1., 1., 1. }; */
 
 static void
 ev_view_presenter_init (EvViewPresenter *self)
@@ -80,9 +80,33 @@ ev_view_presenter_init (EvViewPresenter *self)
 
 static void
 ev_view_presenter_update_current_page (EvViewPresenter *self,
-                                       gint             next)
+                                       gint             page)
 {
-        /* here there's some work to do */
+        cairo_surface_t *surface;
+        EvRenderContext *rc;
+        EvPage  *ev_page;
+
+        if (page < 0 || page >= ev_document_get_n_pages (self->document))
+                return;
+
+        if (self->current_page != page) {
+                self->current_page = page;
+                g_object_notify (G_OBJECT (self), "current-page");
+        }
+
+/* cf. ev_job_render_run */
+        ev_page = ev_document_get_page (self->document,
+                                        self->current_page);
+        rc = ev_render_context_new (ev_page,
+                                    self->rotation,
+                                    self->scale);
+        g_object_unref (ev_page);
+        surface = ev_document_render (self->document, rc);
+        g_object_unref (rc);
+/* */
+        /* please check if surface is good/bad */
+        self->current_surface = surface;
+        gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 static void
@@ -611,4 +635,18 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                    GTK_STYLE_PROVIDER (provider),
                                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         g_object_unref (provider);
+}
+
+GtkWidget *
+ev_view_presenter_new (EvDocument *document,
+                       guint       current_page,
+                       guint       rotation)
+{
+        g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL);
+        g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL);
+
+        return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
+                                         "document", document,
+                                         "current_page", current_page,
+                                         "rotation", rotation, NULL));
 }
