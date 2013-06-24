@@ -52,7 +52,8 @@ struct _EvViewPresenter
         gdouble             scale;
         gint                monitor_width;
         gint                monitor_height;
-        cairo_surface_t    *current_surface;
+        cairo_surface_t    *curr_slide_surface;
+        cairo_surface_t    *next_slide_surface;
 };
 
 struct _EvViewPresenterClass
@@ -105,7 +106,7 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
         g_object_unref (rc);
 /* */
         /* please check if surface is good/bad */
-        self->current_surface = surface;
+        self->curr_slide_surface = surface;
         gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
@@ -341,18 +342,33 @@ ev_view_presenter_realize (GtkWidget *widget)
 }
 
 static void
-ev_view_presenter_update_current_surface (EvViewPresenter *self,
-                                          cairo_surface_t *surface)
+ev_view_presenter_update_curr_slide_surface (EvViewPresenter *self,
+                                             cairo_surface_t *surface)
 {
-        if (!surface || self->current_surface == surface)
+        if (!surface || self->curr_slide_surface == surface)
                 return;
 
         /* ref count ++ */
         cairo_surface_reference (surface);
-        if (self->current_surface)
+        if (self->curr_slide_surface)
                 /* ref count -- */
-                cairo_surface_destroy (self->current_surface);
-        self->current_surface = surface;
+                cairo_surface_destroy (self->curr_slide_surface);
+        self->curr_slide_surface = surface;
+}
+
+static void
+ev_view_presenter_update_next_slide_surface (EvViewPresenter *self,
+                                             cairo_surface_t *surface)
+{
+        if (!surface || self->next_slide_surface == surface)
+                return;
+
+        /* ref count ++ */
+        cairo_surface_reference (surface);
+        if (self->next_slide_surface)
+                /* ref count -- */
+                cairo_surface_destroy (self->next_slide_surface);
+        self->next_slide_surface = surface;
 }
 
 static gdouble
@@ -370,7 +386,7 @@ ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
 			width = height;
 			height = tmp;
 		}
-		self->scale = MIN (self->monitor_width / width, self->monitor_height / height);
+		self->scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
 	}
 
 	return self->scale;
@@ -378,8 +394,8 @@ ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
 
 
 static void
-ev_view_presenter_get_page_area (EvViewPresenter *self,
-                                 GdkRectangle    *page_area)
+ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
+                                            GdkRectangle    *page_area)
 {
         GtkWidget    *widget = GTK_WIDGET (self);
         GtkAllocation allocation;
@@ -404,8 +420,41 @@ ev_view_presenter_get_page_area (EvViewPresenter *self,
 
 	gtk_widget_get_allocation (widget, &allocation);
 
-	page_area->x = (MAX (0, allocation.width - view_width)) / 2;
-	page_area->y = (MAX (0, allocation.height - view_height)) / 2;
+	page_area->x = 0;//(MAX (0, allocation.width - view_width)) / 2;
+	page_area->y = 0;//(MAX (0, allocation.height - view_height)) / 2;
+	page_area->width = view_width;
+	page_area->height = view_height;
+}
+
+static void
+ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
+                                            GdkRectangle    *page_area)
+{
+        GtkWidget    *widget = GTK_WIDGET (self);
+        GtkAllocation allocation;
+        gdouble       doc_width, doc_height;
+        gint          view_width, view_height;
+        gdouble       scale;
+
+        ev_document_get_page_size (self->document,
+                                   self->current_page + 1,
+                                   &doc_width, &doc_height);
+        scale = ev_view_presenter_get_scale_for_page (self,
+                                                      self->current_page + 1);
+
+
+	if (self->rotation == 90 || self->rotation == 270) {
+		view_width = (gint)((doc_height * scale) + 0.5);
+		view_height = (gint)((doc_width * scale) + 0.5);
+	} else {
+		view_width = (gint)((doc_width * scale) + 0.5);
+		view_height = (gint)((doc_height * scale) + 0.5);
+	}
+
+	gtk_widget_get_allocation (widget, &allocation);
+
+	page_area->x = 0;//(MAX (0, allocation.width - view_width)) / 2;
+	page_area->y = allocation.height / 2;//(MAX (0, allocation.height - view_height)) / 2;
 	page_area->width = view_width;
 	page_area->height = view_height;
 }
@@ -417,7 +466,8 @@ ev_view_presenter_draw (GtkWidget *widget,
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (widget);
         GdkRectangle     page_area;
         GdkRectangle     overlap;
-        cairo_surface_t *surface;
+        cairo_surface_t *curr_slide_s;
+        cairo_surface_t *next_slide_s;
         GdkRectangle     clip_rect;
 
         EvRenderContext *rc;
@@ -425,35 +475,73 @@ ev_view_presenter_draw (GtkWidget *widget,
 
         if (!gdk_cairo_get_clip_rectangle (cr, &clip_rect))
                 return FALSE;
-/* cf. ev_job_render_run */
+
+        /* current slide */
         ev_page = ev_document_get_page (presenter->document,
                                         presenter->current_page);
         rc = ev_render_context_new (ev_page,
                                     presenter->rotation,
                                     presenter->scale);
+        curr_slide_s = ev_document_render (presenter->document, rc);
+
+        /* next slide */
+        ev_page = ev_document_get_page (presenter->document,
+/* please take care of the page after the last one :P */
+                                        presenter->current_page + 1);
+        rc = ev_render_context_new (ev_page,
+                                    presenter->rotation,
+                                    presenter->scale);
+        next_slide_s = ev_document_render (presenter->document, rc);
+
+        /* unref evince render context and  evince page*/
         g_object_unref (ev_page);
-        surface = ev_document_render (presenter->document, rc);
         g_object_unref (rc);
-/* */
-        if (surface)
-                ev_view_presenter_update_current_surface (presenter,
-                                                          surface);
-        else if (presenter->current_surface)
-                surface = presenter->current_surface;
-        else
+
+        if (curr_slide_s)
+                ev_view_presenter_update_curr_slide_surface (presenter,
+                                                             curr_slide_s);
+        else if (presenter->curr_slide_surface)
+                curr_slide_s = presenter->curr_slide_surface;
+
+        if (next_slide_s)
+                ev_view_presenter_update_next_slide_surface (presenter,
+                                                             next_slide_s);
+        else if (presenter->next_slide_surface)
+                next_slide_s = presenter->next_slide_surface;
+
+        if (!curr_slide_s && !next_slide_s)
                 return FALSE;
 
-        ev_view_presenter_get_page_area (presenter, &page_area);
-        if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
-                cairo_save (cr);
+        if (curr_slide_s) {
+                ev_view_presenter_get_page_area_curr_slide (presenter,
+                                                                &page_area);
+                if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
+                        cairo_save (cr);
 
-                if (overlap.width == page_area.width)
-                        overlap.width--;
+                        if (overlap.width == page_area.width)
+                                overlap.width--;
 
-                cairo_rectangle (cr, overlap.x, overlap.y, overlap.width, overlap.height);
-                cairo_set_source_surface (cr, surface, page_area.x, page_area.y);
-                cairo_fill (cr);
-                cairo_restore (cr);
+                        cairo_rectangle (cr, overlap.x, overlap.y, overlap.width, overlap.height);
+                        cairo_set_source_surface (cr, curr_slide_s, page_area.x, page_area.y);
+                        cairo_fill (cr);
+                        cairo_restore (cr);
+                }
+        }
+
+        if (next_slide_s) {
+                ev_view_presenter_get_page_area_next_slide (presenter,
+                                                                &page_area);
+                if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
+                        cairo_save (cr);
+
+                        if (overlap.width == page_area.width)
+                                overlap.width--;
+
+                        cairo_rectangle (cr, overlap.x, overlap.y, overlap.width, overlap.height);
+                        cairo_set_source_surface (cr, next_slide_s, page_area.x, page_area.y);
+                        cairo_fill (cr);
+                        cairo_restore (cr);
+                }
         }
 
         return FALSE;
