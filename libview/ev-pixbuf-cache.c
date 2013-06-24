@@ -1195,12 +1195,12 @@ ev_pixbuf_cache_get_selection_list (EvPixbufCache *pixbuf_cache)
 		}
 
 		if (pixbuf_cache->prev_job[i].selection_points.x1 != -1) {
-			selection = g_new0 (EvViewSelection, 1);
+			selection = g_slice_new0 (EvViewSelection);
 			selection->page = page;
 			selection->rect = pixbuf_cache->prev_job[i].selection_points;
 			if (pixbuf_cache->prev_job[i].selection_region)
 				selection->covered_region = cairo_region_reference (pixbuf_cache->prev_job[i].selection_region);
-			retval = g_list_append (retval, selection);
+			retval = g_list_prepend (retval, selection);
 		}
 		
 		page ++;
@@ -1209,12 +1209,12 @@ ev_pixbuf_cache_get_selection_list (EvPixbufCache *pixbuf_cache)
 	page = pixbuf_cache->start_page;
 	for (i = 0; i < PAGE_CACHE_LEN (pixbuf_cache); i++) {
 		if (pixbuf_cache->job_list[i].selection_points.x1 != -1) {
-			selection = g_new0 (EvViewSelection, 1);
+			selection = g_slice_new0 (EvViewSelection);
 			selection->page = page;
 			selection->rect = pixbuf_cache->job_list[i].selection_points;
 			if (pixbuf_cache->job_list[i].selection_region)
 				selection->covered_region = cairo_region_reference (pixbuf_cache->job_list[i].selection_region);
-			retval = g_list_append (retval, selection);
+			retval = g_list_prepend (retval, selection);
 		}
 		
 		page ++;
@@ -1225,18 +1225,18 @@ ev_pixbuf_cache_get_selection_list (EvPixbufCache *pixbuf_cache)
 			break;
 
 		if (pixbuf_cache->next_job[i].selection_points.x1 != -1) {
-			selection = g_new0 (EvViewSelection, 1);
+			selection = g_slice_new0 (EvViewSelection);
 			selection->page = page;
 			selection->rect = pixbuf_cache->next_job[i].selection_points;
 			if (pixbuf_cache->next_job[i].selection_region)
 				selection->covered_region = cairo_region_reference (pixbuf_cache->next_job[i].selection_region);
-			retval = g_list_append (retval, selection);
+			retval = g_list_prepend (retval, selection);
 		}
 		
 		page ++;
 	}
 
-	return retval;
+	return g_list_reverse (retval);
 }
 
 void
