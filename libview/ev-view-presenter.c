@@ -152,19 +152,19 @@ ev_view_presenter_delete_job (EvViewPresenter *self,
         g_object_unref (job);
 }
  
-/* static gboolean */
-/* ev_view_presenter_surfaces_ready (EvViewPresenter  *self, */
-/*                                   EvJob             jobs[]) */
-/* { */
-/*         gboolean     ready = TRUE; */
-/*         EvSlideCount slide; */
+static gboolean
+ev_view_presenter_surfaces_ready (EvViewPresenter  *self,
+                                  EvJob            *jobs[])
+{
+        gboolean     ready = TRUE;
+        EvSlideCount slide;
 
-/*         for (slide = 0; slide < N_SLIDES; slide++) */
-/*                 if (!EV_JOB_RENDER (jobs[slide])->surface) */
-/*                         ready = FALSE; */
+        for (slide = 0; slide < N_SLIDES; slide++)
+                if (!EV_JOB_RENDER (jobs[slide])->surface)
+                        ready = FALSE;
 
-/*         return ready; */
-/* } */
+        return ready;
+}
 
 static void
 ev_view_presenter_update_current_page (EvViewPresenter *self,
@@ -397,12 +397,7 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 g_object_notify (G_OBJECT (self), "current-paege");
         }
 
-        /* can't get this right :( */
-        /* if (ev_view_presenter_surfaces_ready (self, self->curr_job)) */
-        /*         gtk_widget_queue_draw (GTK_WIDGET (self)); */
-        /* yes, I'm an ugly workaround: */
-        if ((EV_JOB_RENDER (self->curr_job[CURR_SLIDE]))->surface &&
-            (EV_JOB_RENDER (self->curr_job[NEXT_SLIDE]))->surface)
+        if (ev_view_presenter_surfaces_ready (self, self->curr_job))
                 gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
