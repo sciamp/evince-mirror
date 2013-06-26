@@ -61,7 +61,6 @@ typedef struct {
 typedef struct {
 	gboolean in_drag;
 	GdkPoint start;
-	gboolean in_selection;
 	GList *selections;
 	EvSelectionStyle style;
 } SelectionInfo;
@@ -215,6 +214,7 @@ struct _EvView {
 	gboolean caret_enabled;
 	gint     cursor_offset;
 	gint     cursor_page;
+	gdouble  cursor_line_offset;
 	gboolean cursor_visible;
 	guint    cursor_blink_timeout_id;
 	guint    cursor_blink_time;

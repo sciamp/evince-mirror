@@ -4024,7 +4024,7 @@ position_caret_cursor_at_location (EvView *view,
 	gint         offset = -1 ;
 	gint         doc_x, doc_y;
 	EvRectangle *rect;
-	guint        i;
+	guint        i, j;
 
 	if (!view->caret_enabled || view->rotation != 0)
 		return FALSE;
@@ -4040,23 +4040,49 @@ position_caret_cursor_at_location (EvView *view,
 	if (!areas)
 		return FALSE;
 
+	/* First look for the line of text at location */
 	for (i = 0; i < n_areas; i++) {
 		rect = areas + i;
-		if (doc_x >= rect->x1 && doc_x <= rect->x2 &&
-		    doc_y >= rect->y1 && doc_y <= rect->y2) {
-			/* Position the caret before or after the character, depending on whether
-			   the point falls within the left or right half of the bounding box. */
-			if (doc_x <= rect->x1 + (rect->x2 - rect->x1) / 2)
-				offset = i;
-			else
-				offset = i + 1;
 
+		if (doc_y >= rect->y1 && doc_y <= rect->y2)
 			break;
+	}
+
+	if (i == n_areas)
+		return FALSE;
+
+	if (doc_x <= rect->x1) {
+		/* Location is before the start of the line */
+		offset = i;
+	} else {
+		for (j = i; j < n_areas; j++) {
+			rect = areas + j;
+
+			if (doc_y < rect->y1) {
+				/* Location is after the end of the line */
+				offset = j;
+				break;
+			}
+
+			if (doc_x >= rect->x1 && doc_x <= rect->x2) {
+				/* Location is inside the line. Position the caret before
+				 * or after the character, depending on whether the point
+				 * falls within the left or right half of the bounding box.
+				 */
+				if (doc_x <= rect->x1 + (rect->x2 - rect->x1) / 2)
+					offset = j;
+				else
+					offset = j + 1;
+				break;
+			}
+
 		}
 	}
 
-	if (offset == -1)
-		return FALSE;
+	if (offset == -1) {
+		/* This is the last line and loocation is after the end of the line */
+		offset = n_areas;
+	}
 
 	if (view->cursor_offset != offset || view->cursor_page != page) {
 		view->cursor_offset = offset;
@@ -4066,6 +4092,23 @@ position_caret_cursor_at_location (EvView *view,
 	}
 
 	return FALSE;
+}
+
+static gboolean
+position_caret_cursor_for_event (EvView         *view,
+				 GdkEventButton *event)
+{
+	GdkRectangle area;
+
+	if (!position_caret_cursor_at_location (view, event->x, event->y))
+		return FALSE;
+
+	if (!get_caret_cursor_area (view, view->cursor_page, view->cursor_offset, &area))
+		return FALSE;
+
+	view->cursor_line_offset = area.x;
+
+	return TRUE;
 }
 
 static gboolean
@@ -4116,6 +4159,10 @@ ev_view_button_press_event (GtkWidget      *widget,
 					view->selection_info.in_drag = TRUE;
 				} else {
 					start_selection_for_event (view, event);
+					if (position_caret_cursor_for_event (view, event)) {
+						view->cursor_blink_time = 0;
+						ev_view_pend_cursor_blink (view);
+					}
 				}
 
 				gtk_widget_queue_draw (widget);
@@ -4148,7 +4195,7 @@ ev_view_button_press_event (GtkWidget      *widget,
 				if (EV_IS_SELECTION (view->document))
 					start_selection_for_event (view, event);
 
-				if (position_caret_cursor_at_location (view, event->x, event->y)) {
+				if (position_caret_cursor_for_event (view, event)) {
 					view->cursor_blink_time = 0;
 					ev_view_pend_cursor_blink (view);
 
@@ -4460,7 +4507,6 @@ ev_view_motion_notify_event (GtkWidget      *widget,
 		else 
 		    selection_scroll_timeout_cb (view);
 
-		view->selection_info.in_selection = TRUE;
 		view->motion.x = x + view->scroll_x;
 		view->motion.y = y + view->scroll_y;
 
@@ -4600,7 +4646,7 @@ ev_view_button_release_event (GtkWidget      *widget,
 		clear_link_selected (view);
 		ev_view_update_primary_selection (view);
 
-		position_caret_cursor_at_location (view, event->x, event->y);
+		position_caret_cursor_for_event (view, event);
 
 		if (view->selection_info.in_drag) {
 			clear_selection (view);
@@ -4959,11 +5005,9 @@ extend_selection_from_cursor (EvView *view,
 			      GdkPoint *start_point,
 			      GdkPoint *end_point)
 {
-	if (!(view->selection_info.in_selection && view->selection_info.selections)) {
-		clear_selection (view);
+	if (!view->selection_info.selections) {
 		view->selection_info.start.x = start_point->x;
 		view->selection_info.start.y = start_point->y;
-		view->selection_info.in_selection = TRUE;
 	}
 
 	compute_selections (view,
@@ -5043,6 +5087,13 @@ ev_view_move_cursor (EvView         *view,
 	/* Scroll to make the caret visible */
 	if (!get_caret_cursor_area (view, view->cursor_page, view->cursor_offset, &rect))
 		return TRUE;
+
+	if (step == GTK_MOVEMENT_DISPLAY_LINES) {
+		position_caret_cursor_at_location (view, view->cursor_line_offset,
+						   rect.y + (rect.height / 2));
+	} else {
+		view->cursor_line_offset = rect.x;
+	}
 
 	rect.x += view->scroll_x;
 	rect.y += view->scroll_y;
@@ -5939,7 +5990,6 @@ ev_view_init (EvView *view)
 	view->drag_info.in_drag = FALSE;
 	view->scroll_info.autoscrolling = FALSE;
 	view->selection_info.selections = NULL;
-	view->selection_info.in_selection = FALSE;
 	view->selection_info.in_drag = FALSE;
 	view->selection_mode = EV_VIEW_SELECTION_TEXT;
 	view->continuous = TRUE;
@@ -7140,8 +7190,8 @@ compute_new_selection_text (EvView          *view,
 			_ev_view_transform_view_point_to_doc_point (view, point, &page_area,
 								    &selection->rect.x1,
 								    &selection->rect.y1);
-			selection->rect.x1 -= border.left;
-			selection->rect.y1 -= border.top;
+			selection->rect.x1 = MAX (selection->rect.x1 - border.left, 0);
+			selection->rect.y1 = MAX (selection->rect.y1 - border.top, 0);
 		}
 
 		/* If the selection is contained within just one page,
@@ -7154,8 +7204,8 @@ compute_new_selection_text (EvView          *view,
 			_ev_view_transform_view_point_to_doc_point (view, point, &page_area,
 								    &selection->rect.x2,
 								    &selection->rect.y2);
-			selection->rect.x2 -= border.right;
-			selection->rect.y2 -= border.bottom;
+			selection->rect.x2 = MAX (selection->rect.x2 - border.right, 0);
+			selection->rect.y2 = MAX (selection->rect.y2 - border.bottom, 0);
 		}
 
 		list = g_list_prepend (list, selection);
@@ -7341,7 +7391,7 @@ clear_selection (EvView *view)
 
 		g_signal_emit (view, signals[SIGNAL_SELECTION_CHANGED], 0, NULL);
 	}
-	view->selection_info.in_selection = FALSE;
+
 	if (view->pixbuf_cache)
 		ev_pixbuf_cache_set_selection_list (view->pixbuf_cache, NULL);
 }
