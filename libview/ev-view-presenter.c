@@ -160,7 +160,8 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 ev_view_presenter_delete_job (self,
                                               self->last_job);
                 self->last_job = self->next_job;
-                self->next_job = self->curr_job;
+                self->next_job = self->curr_job; /* curr_job is
+                                                    already scheduled as an urgent job */
                 self->curr_job = self->prev_job;
 
                 if (!self->curr_job)
@@ -176,8 +177,10 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                         ev_view_presenter_schedule_new_job (self,
                                                             page - 1,
                                                             EV_JOB_PRIORITY_LOW);
-                ev_job_scheduler_update_job (self->next_job,
+
+                ev_job_scheduler_update_job (self->last_job,
                                              EV_JOB_PRIORITY_HIGH);
+
                 break;
         case 0:
                 if (!self->prev_job)
@@ -194,36 +197,35 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                         self->next_job =
                                 ev_view_presenter_schedule_new_job (self,
                                                                     page + 1,
-                                                                    EV_JOB_PRIORITY_HIGH);
+                                                                    EV_JOB_PRIORITY_URGENT);
                 if (!self->last_job)
                         self->last_job =
                                 ev_view_presenter_schedule_new_job (self,
                                                                     page + 2,
-                                                                    EV_JOB_PRIORITY_LOW);
+                                                                    EV_JOB_PRIORITY_HIGH);
                 break;
         case 1:
                 ev_view_presenter_delete_job (self,
                                               self->prev_job);
                 self->prev_job = self->curr_job;
-                self->curr_job = self->next_job;
+                self->curr_job = self->next_job; /* next_job is
+                                                    already scheduled as an urgent job */
                 self->next_job = self->last_job;
 
-                if (!self->curr_job)
-                        self->curr_job =
+                if (!self->next_job)
+                        self->next_job =
                                 ev_view_presenter_schedule_new_job (self,
-                                                                    page,
+                                                                    page + 1,
                                                                     EV_JOB_PRIORITY_URGENT);
                 else
-                        ev_job_scheduler_update_job (self->curr_job,
+                        ev_job_scheduler_update_job (self->next_job,
                                                      EV_JOB_PRIORITY_URGENT);
 
                 self->last_job = ev_view_presenter_schedule_new_job (self,
-                                                               page + 2,
-                                                               EV_JOB_PRIORITY_LOW);
+                                                                     page + 2,
+                                                                     EV_JOB_PRIORITY_HIGH);
                 ev_job_scheduler_update_job (self->prev_job,
                                              EV_JOB_PRIORITY_LOW);
-                ev_job_scheduler_update_job (self->next_job,
-                                             EV_JOB_PRIORITY_HIGH);
                 break;
         default:
                 ev_view_presenter_delete_job (self,
