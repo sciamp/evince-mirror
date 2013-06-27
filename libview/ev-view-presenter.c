@@ -138,8 +138,7 @@ ev_view_presenter_delete_job (EvViewPresenter *self,
         if (!job)
                 return;
 
-        /* when done with signals about finished jobs we should
-         * disconnect it here */
+        g_signal_handlers_disconnect_by_func (job, job_finished_cb, self);
         ev_job_cancel (job);
         g_object_unref (job);
 }
