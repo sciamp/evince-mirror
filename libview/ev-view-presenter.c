@@ -42,12 +42,6 @@ enum {
         N_SIGNALS
 };
 
-typedef enum {
-        CURR_SLIDE,
-        NEXT_SLIDE,
-        N_SLIDES
-} EvSlideCount;
-
 struct _EvViewPresenter
 {
         GtkWidget           base;
@@ -63,9 +57,10 @@ struct _EvViewPresenter
         cairo_surface_t    *curr_slide_surface;
         cairo_surface_t    *next_slide_surface;
 
-        EvJob              *prev_job[N_SLIDES];
-        EvJob              *curr_job[N_SLIDES];
-        EvJob              *next_job[N_SLIDES];
+        EvJob              *prev_job;
+        EvJob              *curr_job;
+        EvJob              *next_job;
+        EvJob              *last_job;
 };
 
 struct _EvViewPresenterClass
@@ -97,11 +92,9 @@ ev_view_presenter_job_is_current (EvViewPresenter *self,
                                   EvJob           *job)
 {
         gboolean     current = FALSE;
-        EvSlideCount slide;
 
-        for (slide = 0; slide < N_SLIDES; slide++)
-                if (self->curr_job[slide] == job)
-                        current = TRUE;
+        if (self->curr_job == job)
+                current = TRUE;
 
         return current;
 }
@@ -117,8 +110,7 @@ job_finished_cb (EvJob           *job,
 static EvJob *
 ev_view_presenter_schedule_new_job (EvViewPresenter *self,
                                     gint             page,
-                                    EvJobPriority    priority,
-                                    EvSlideCount     slide)
+                                    EvJobPriority    priority)
 {
         EvJob  *job;
         gdouble scale;
@@ -128,7 +120,7 @@ ev_view_presenter_schedule_new_job (EvViewPresenter *self,
 
         scale = ev_view_presenter_get_scale_for_page (self, page);
         job = ev_job_render_new (self->document,
-                                 page + slide,
+                                 page,
                                  self->rotation,
                                  scale, 0, 0);
         g_signal_connect (job, "finished",
@@ -152,26 +144,11 @@ ev_view_presenter_delete_job (EvViewPresenter *self,
         g_object_unref (job);
 }
  
-static gboolean
-ev_view_presenter_surfaces_ready (EvViewPresenter  *self,
-                                  EvJob            *jobs[])
-{
-        gboolean     ready = TRUE;
-        EvSlideCount slide;
-
-        for (slide = 0; slide < N_SLIDES; slide++)
-                if (!EV_JOB_RENDER (jobs[slide])->surface)
-                        ready = FALSE;
-
-        return ready;
-}
-
 static void
 ev_view_presenter_update_current_page (EvViewPresenter *self,
                                        gint             page)
 {
         gint         jump;
-        EvSlideCount slide;
 
         if (page < 0 || page >= ev_document_get_n_pages (self->document))
                 return;
@@ -180,216 +157,100 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
 
         switch (jump) {
         case -1:
-                /* for (slide = 0; slide < N_SLIDES; slide ++) { */
-                        ev_view_presenter_delete_job (self, 
-                                                      self->next_job[CURR_SLIDE]);
-                        
-                        self->next_job[CURR_SLIDE] = self->curr_job[CURR_SLIDE];
-                        self->curr_job[CURR_SLIDE] = self->prev_job[CURR_SLIDE];
+                ev_view_presenter_delete_job (self,
+                                              self->last_job);
+                self->last_job = self->next_job;
+                self->next_job = self->curr_job;
+                self->curr_job = self->prev_job;
 
-                        if (!self->curr_job[CURR_SLIDE])
-                                self->curr_job[CURR_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            CURR_SLIDE);
-                        else
-                                ev_job_scheduler_update_job (self->curr_job[CURR_SLIDE],
-                                                            EV_JOB_PRIORITY_URGENT);
-
-                        self->prev_job[CURR_SLIDE] =
+                if (!self->curr_job)
+                        self->curr_job =
                                 ev_view_presenter_schedule_new_job (self,
-                                                                    page - 1,
-                                                                    EV_JOB_PRIORITY_HIGH,
-                                                                    CURR_SLIDE);
+                                                                    page,
+                                                                    EV_JOB_PRIORITY_URGENT);
+                else
+                        ev_job_scheduler_update_job (self->curr_job,
+                                                     EV_JOB_PRIORITY_URGENT);
 
-                        ev_job_scheduler_update_job (self->next_job[CURR_SLIDE],
-                                                     EV_JOB_PRIORITY_LOW);
-                /* } */
-                        ev_view_presenter_delete_job (self, 
-                                                      self->next_job[NEXT_SLIDE]);
-                        
-                        self->next_job[NEXT_SLIDE] = self->curr_job[NEXT_SLIDE];
-                        self->curr_job[NEXT_SLIDE] = self->prev_job[NEXT_SLIDE];
-
-                        if (!self->curr_job[NEXT_SLIDE])
-                                self->curr_job[NEXT_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            NEXT_SLIDE);
-                        else
-                                ev_job_scheduler_update_job (self->curr_job[NEXT_SLIDE],
-                                                            EV_JOB_PRIORITY_URGENT);
-
-                        self->prev_job[NEXT_SLIDE] =
-                                ev_view_presenter_schedule_new_job (self,
-                                                                    page - 1,
-                                                                    EV_JOB_PRIORITY_HIGH,
-                                                                    NEXT_SLIDE);
-
-                        ev_job_scheduler_update_job (self->next_job[NEXT_SLIDE],
-                                                     EV_JOB_PRIORITY_LOW);
-
+                self->prev_job =
+                        ev_view_presenter_schedule_new_job (self,
+                                                            page - 1,
+                                                            EV_JOB_PRIORITY_LOW);
+                ev_job_scheduler_update_job (self->next_job,
+                                             EV_JOB_PRIORITY_HIGH);
                 break;
         case 0:
-                /* for (slide = 0; slide < N_SLIDES; slide++) { */
-                        if (!self->curr_job[CURR_SLIDE])
-                                self->curr_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            CURR_SLIDE);
-
-                        if (!self->next_job[CURR_SLIDE])
-                                self->next_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            CURR_SLIDE);
-
-                        if (!self->prev_job[CURR_SLIDE])
-                                self->prev_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            CURR_SLIDE);
-                /* } */
-                        if (!self->curr_job[NEXT_SLIDE])
-                                self->curr_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            NEXT_SLIDE);
-
-                        if (!self->next_job[NEXT_SLIDE])
-                                self->next_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            NEXT_SLIDE);
-
-                        if (!self->prev_job[NEXT_SLIDE])
-                                self->prev_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            NEXT_SLIDE);
-
+                if (!self->prev_job)
+                        self->prev_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page - 1,
+                                                                    EV_JOB_PRIORITY_LOW);
+                if (!self->curr_job)
+                        self->curr_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page,
+                                                                    EV_JOB_PRIORITY_URGENT);
+                if (!self->next_job)
+                        self->next_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page + 1,
+                                                                    EV_JOB_PRIORITY_HIGH);
+                if (!self->last_job)
+                        self->last_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page + 2,
+                                                                    EV_JOB_PRIORITY_LOW);
                 break;
         case 1:
-                /* for (slide = 0; slide < N_SLIDES; slide++) { */
-                        ev_view_presenter_delete_job (self, self->prev_job[CURR_SLIDE]);
-                        self->prev_job[CURR_SLIDE] = self->curr_job[CURR_SLIDE];
-                        self->curr_job[CURR_SLIDE] = self->next_job[CURR_SLIDE];
+                ev_view_presenter_delete_job (self,
+                                              self->prev_job);
+                self->prev_job = self->curr_job;
+                self->curr_job = self->next_job;
+                self->next_job = self->last_job;
 
-                        if (!self->curr_job[CURR_SLIDE])
-                                self->curr_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            CURR_SLIDE);
-                        else
-                                ev_job_scheduler_update_job (self->curr_job[CURR_SLIDE],
-                                                             EV_JOB_PRIORITY_URGENT);
-                        self->next_job[CURR_SLIDE] =
+                if (!self->curr_job)
+                        self->curr_job =
                                 ev_view_presenter_schedule_new_job (self,
                                                                     page,
-                                                                    EV_JOB_PRIORITY_HIGH,
-                                                                    CURR_SLIDE);
-                        ev_job_scheduler_update_job (self->prev_job[CURR_SLIDE], EV_JOB_PRIORITY_LOW);
-                /* } */
-                        ev_view_presenter_delete_job (self, self->prev_job[NEXT_SLIDE]);
-                        self->prev_job[NEXT_SLIDE] = self->curr_job[NEXT_SLIDE];
-                        self->curr_job[NEXT_SLIDE] = self->next_job[NEXT_SLIDE];
+                                                                    EV_JOB_PRIORITY_URGENT);
+                else
+                        ev_job_scheduler_update_job (self->curr_job,
+                                                     EV_JOB_PRIORITY_URGENT);
 
-                        if (!self->curr_job[NEXT_SLIDE])
-                                self->curr_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_URGENT,
-                                                                            NEXT_SLIDE);
-                        else
-                                ev_job_scheduler_update_job (self->curr_job[NEXT_SLIDE],
-                                                             EV_JOB_PRIORITY_URGENT);
-                        self->next_job[NEXT_SLIDE] =
-                                ev_view_presenter_schedule_new_job (self,
-                                                                    page,
-                                                                    EV_JOB_PRIORITY_HIGH,
-                                                                    NEXT_SLIDE);
-                        ev_job_scheduler_update_job (self->prev_job[NEXT_SLIDE], EV_JOB_PRIORITY_LOW);
-
+                self->last_job = ev_view_presenter_schedule_new_job (self,
+                                                               page + 2,
+                                                               EV_JOB_PRIORITY_LOW);
+                ev_job_scheduler_update_job (self->prev_job,
+                                             EV_JOB_PRIORITY_LOW);
+                ev_job_scheduler_update_job (self->next_job,
+                                             EV_JOB_PRIORITY_HIGH);
                 break;
         default:
-                /* for (slide = 0; slide < N_SLIDES; slide++) { */
-                        ev_view_presenter_delete_job (self, self->prev_job[NEXT_SLIDE]);
-                        ev_view_presenter_delete_job (self, self->curr_job[NEXT_SLIDE]);
-                        ev_view_presenter_delete_job (self, self->next_job[NEXT_SLIDE]);
+                ev_view_presenter_delete_job (self,
+                                              self->prev_job);
+                ev_view_presenter_delete_job (self,
+                                              self->curr_job);
+                ev_view_presenter_delete_job (self,
+                                              self->next_job);
+                ev_view_presenter_delete_job (self,
+                                              self->last_job);
 
-                        self->curr_job[NEXT_SLIDE] = 
-                                ev_view_presenter_schedule_new_job (self,
-                                                                    page,
-                                                                    EV_JOB_PRIORITY_URGENT,
-                                                                    NEXT_SLIDE);
-
-                        if (jump > 0) {
-                                self->next_job[NEXT_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            NEXT_SLIDE);
-                                self->prev_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page - 1,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            NEXT_SLIDE);
-                        } else {
-                                self->next_job[NEXT_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page - 1,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            NEXT_SLIDE);
-                                self->prev_job[NEXT_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            NEXT_SLIDE);
-                        }
-                /* } */
-                        ev_view_presenter_delete_job (self, self->prev_job[CURR_SLIDE]);
-                        ev_view_presenter_delete_job (self, self->curr_job[CURR_SLIDE]);
-                        ev_view_presenter_delete_job (self, self->next_job[CURR_SLIDE]);
-
-                        self->curr_job[CURR_SLIDE] = 
-                                ev_view_presenter_schedule_new_job (self,
-                                                                    page,
-                                                                    EV_JOB_PRIORITY_URGENT,
-                                                                    CURR_SLIDE);
-
-                        if (jump > 0) {
-                                self->next_job[CURR_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            CURR_SLIDE);
-                                self->prev_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page - 1,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            CURR_SLIDE);
-                        } else {
-                                self->next_job[CURR_SLIDE] = 
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page - 1,
-                                                                            EV_JOB_PRIORITY_HIGH,
-                                                                            CURR_SLIDE);
-                                self->prev_job[CURR_SLIDE] =
-                                        ev_view_presenter_schedule_new_job (self,
-                                                                            page + 1,
-                                                                            EV_JOB_PRIORITY_LOW,
-                                                                            CURR_SLIDE);
-                        }
-
+                self->curr_job =
+                        ev_view_presenter_schedule_new_job (self,
+                                                            page,
+                                                            EV_JOB_PRIORITY_URGENT);
+                self->next_job =
+                        ev_view_presenter_schedule_new_job (self,
+                                                            page + 1,
+                                                            EV_JOB_PRIORITY_HIGH);
+                self->last_job =
+                        ev_view_presenter_schedule_new_job (self,
+                                                            page + 2,
+                                                            EV_JOB_PRIORITY_LOW);
+                self->prev_job =
+                        ev_view_presenter_schedule_new_job (self,
+                                                            page - 1,
+                                                            EV_JOB_PRIORITY_LOW);
         }
 
         if (self->current_page != page) {
@@ -397,7 +258,8 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 g_object_notify (G_OBJECT (self), "current-paege");
         }
 
-        if (ev_view_presenter_surfaces_ready (self, self->curr_job))
+        if (EV_JOB_RENDER (self->curr_job)->surface &&
+            EV_JOB_RENDER (self->next_job)->surface)
                 gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
@@ -753,23 +615,24 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
 static void
 ev_view_presenter_reset_jobs (EvViewPresenter *self)
 {
-        EvSlideCount slide;
+        if (self->curr_job) {
+                ev_view_presenter_delete_job (self, self->curr_job);
+                self->curr_job = NULL;
+        }
 
-        for (slide=0; slide < N_SLIDES; slide++) {
-                if (self->curr_job[slide]) {
-                        ev_view_presenter_delete_job (self, self->curr_job[slide]);
-                        self->curr_job[slide] = NULL;
-                }
+        if (self->prev_job) {
+                ev_view_presenter_delete_job (self, self->prev_job);
+                self->prev_job = NULL;
+        }
 
-                if (self->prev_job[slide]) {
-                        ev_view_presenter_delete_job (self, self->prev_job[slide]);
-                        self->prev_job[slide] = NULL;
-                }
+        if (self->next_job) {
+                ev_view_presenter_delete_job (self, self->next_job);
+                self->next_job = NULL;
+        }
 
-                if (self->next_job[slide]) {
-                        ev_view_presenter_delete_job (self, self->next_job[slide]);
-                        self->next_job[slide] = NULL;
-                }
+        if (self->last_job) {
+                ev_view_presenter_delete_job (self, self->last_job);
+                self->last_job = NULL;
         }
 }
 
@@ -787,11 +650,11 @@ ev_view_presenter_draw (GtkWidget *widget,
         if (!gdk_cairo_get_clip_rectangle (cr, &clip_rect))
                 return FALSE;
 
-        curr_slide_s = presenter->curr_job[CURR_SLIDE] ?
-                EV_JOB_RENDER (presenter->curr_job[CURR_SLIDE])->surface : NULL;
+        curr_slide_s = presenter->curr_job ?
+                EV_JOB_RENDER (presenter->curr_job)->surface : NULL;
 
-        next_slide_s = presenter->curr_job[NEXT_SLIDE] ?
-                EV_JOB_RENDER (presenter->curr_job[NEXT_SLIDE])->surface : NULL;
+        next_slide_s = presenter->next_job ?
+                EV_JOB_RENDER (presenter->next_job)->surface : NULL;
 
         if (curr_slide_s)
                 ev_view_presenter_update_curr_slide_surface (presenter,
