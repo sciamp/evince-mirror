@@ -9,7 +9,8 @@ NOINST_H_SRC_FILES =			\
 	ev-transition-animation.h	\
 	ev-view-accessible.h		\
 	ev-view-cursor.h		\
-	ev-view-private.h
+	ev-view-private.h		\
+	ev-view-presentation-private.h
 
 NOINST_H_BUILT_FILES = \
 	ev-view-marshal.h
