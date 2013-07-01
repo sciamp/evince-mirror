@@ -28,6 +28,8 @@
 #include "ev-jobs.h"
 #include "ev-job-scheduler.h"
 
+#include "ev-view-presentation-private.h"
+
 enum {
         PROP_0,
         PROP_DOCUMENT,
@@ -768,7 +770,7 @@ ev_view_presenter_draw (GtkWidget *widget,
 
         if (curr_slide_s) {
                 ev_view_presenter_get_page_area_curr_slide (presenter,
-                                                                &page_area);
+                                                            &page_area);
                 if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
                         cairo_save (cr);
 
@@ -784,7 +786,7 @@ ev_view_presenter_draw (GtkWidget *widget,
 
         if (next_slide_s) {
                 ev_view_presenter_get_page_area_next_slide (presenter,
-                                                                &page_area);
+                                                            &page_area);
                 if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
                         cairo_save (cr);
 
@@ -979,16 +981,21 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
         g_object_unref (provider);
 }
 
-GtkWidget *
-ev_view_presenter_new (EvDocument *document,
-                       guint       current_page,
-                       guint       rotation)
+/* GtkWidget * */
+/* ev_view_presenter_new (EvDocument *document, */
+/*                        guint       current_page, */
+/*                        guint       rotation) */
+GtkWidget
+ev_view_presenter_new (EvViewPresentation *presentation)
 {
-        g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL);
-        g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL);
+        /* g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL); */
+        /* g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL); */
 
+        /* return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER, */
+        /*                                  "document", document, */
+        /*                                  "current_page", current_page, */
+        /*                                  "rotation", rotation, NULL)); */
         return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
-                                         "document", document,
-                                         "current_page", current_page,
-                                         "rotation", rotation, NULL));
+                                         "presentation", presentation,
+                                         NULL));
 }
