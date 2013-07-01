@@ -31,6 +31,8 @@
 #include "ev-view-cursor.h"
 #include "ev-page-cache.h"
 
+#include "ev-view-presentation-private.h"
+
 enum {
 	PROP_0,
 	PROP_DOCUMENT,
