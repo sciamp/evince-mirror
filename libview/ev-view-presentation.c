@@ -48,13 +48,6 @@ enum {
 	N_SIGNALS
 };
 
-typedef enum {
-	EV_PRESENTATION_NORMAL,
-	EV_PRESENTATION_BLACK,
-	EV_PRESENTATION_WHITE,
-	EV_PRESENTATION_END
-} EvPresentationState;
-
 struct _EvViewPresentation
 {
 	GtkWidget base;
@@ -93,6 +86,27 @@ struct _EvViewPresentation
 	EvJob *curr_job;
 	EvJob *next_job;
 };
+
+/* getter/setter for EvViewPresenter */
+EvDocument *
+ev_view_presentation_get_document (EvViewPresentation *pview)
+{
+        return pview->document;
+}
+
+EvPresentationState
+ev_view_presentation_get_state (EvViewPresentation *pview)
+{
+        return pview->state;
+}
+
+gdouble
+ev_view_presentation_get_scale (EvViewPresentation *pview)
+{
+        return pview->scale;
+}
+
+/* getter/setter for EvViewPresenter end */
 
 struct _EvViewPresentationClass
 {
