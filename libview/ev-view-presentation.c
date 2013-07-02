@@ -127,7 +127,7 @@ static void ev_view_presentation_set_cursor_for_location (EvViewPresentation *pv
 
 #define HIDE_CURSOR_TIMEOUT 5
 
-G_DEFINE_TYPE (EvViewPresentation, ev_view_presentation, GTK_TYPE_WIDGET)
+G_DEFINE_TYPE (EvViewPresentation, ev_view_presentation, GTK_TYPE_WIDGET) 
 
 static GdkRGBA black = { 0., 0., 0., 1. };
 static GdkRGBA white = { 1., 1., 1., 1. };
@@ -409,7 +409,7 @@ ev_view_presentation_reset_jobs (EvViewPresentation *pview)
         }
 }
 
-static void
+void
 ev_view_presentation_update_current_page (EvViewPresentation *pview,
 					  guint               page)
 {

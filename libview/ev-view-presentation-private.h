@@ -1,4 +1,4 @@
-/* ev-view-presenter.c
+/* ev-view-presentation-private.h
  *  this file is part of evince, a gnome document viewer
  *
  * Copyright (C) 2013 Alessandro Campagni <alessandro.campagni@gmail.com>
@@ -21,6 +21,8 @@
 #ifndef __EV_VIEW_PRESENTATION_PRIVATE_H__
 #define __EV_VIEW_PRESENTATION_PRIVATE_H__
 
+#include "ev-view-presentation.h"
+
 typedef enum {
 	EV_PRESENTATION_NORMAL,
 	EV_PRESENTATION_BLACK,
@@ -28,12 +30,11 @@ typedef enum {
 	EV_PRESENTATION_END
 } EvPresentationState;
 
-EvDocument         *ev_view_presentation_get_document (EvViewPresentation *pview);
-EvPresentationState ev_view_presentation_get_state (EvViewPresentation *pview);
-gdouble             ev_view_presentation_get_scale (EvViewPresentation *pview);
-
-
-
+EvDocument         *ev_view_presentation_get_document        (EvViewPresentation *pview);
+EvPresentationState ev_view_presentation_get_state           (EvViewPresentation *pview);
+gdouble             ev_view_presentation_get_scale           (EvViewPresentation *pview);
+void                ev_view_presentation_update_current_page (EvViewPresentation *pview,
+                                                              guint               page);
 
 
 
