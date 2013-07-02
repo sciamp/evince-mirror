@@ -32,9 +32,10 @@
 
 enum {
         PROP_0,
-        PROP_DOCUMENT,
-        PROP_CURRENT_PAGE,
-        PROP_ROTATION,
+        PROP_PRESENTATION
+        /* PROP_DOCUMENT, */
+        /* PROP_CURRENT_PAGE, */
+        /* PROP_ROTATION, */
 };
 
 enum {
@@ -50,10 +51,12 @@ struct _EvViewPresenter
 
         guint               is_constructing : 1;
 
-        guint               current_page;
-        EvDocument         *document;
-        guint               rotation;
-        gdouble             scale;
+        EvViewPresentation *presentation;
+
+        /* guint               current_page; */
+        /* EvDocument         *document; */
+        /* guint               rotation; */
+        /* gdouble             scale; */
         gint                monitor_width;
         gint                monitor_height;
         cairo_surface_t    *curr_slide_surface;
@@ -114,16 +117,18 @@ ev_view_presenter_schedule_new_job (EvViewPresenter *self,
                                     gint             page,
                                     EvJobPriority    priority)
 {
-        EvJob  *job;
-        gdouble scale;
+        EvJob      *job;
+        gdouble     scale;
+        EvDocument *document =
+                ev_view_presentation_get_document (self->presentation);
 
-        if (page < 0 || page >= ev_document_get_n_pages (self->document))
+        if (page < 0 || page >= ev_document_get_n_pages (document))
                 return FALSE;
 
         scale = ev_view_presenter_get_scale_for_page (self, page);
-        job = ev_job_render_new (self->document,
+        job = ev_job_render_new (document,
                                  page,
-                                 self->rotation,
+                                 ev_view_presentation_get_rotation (self->presentation),
                                  scale, 0, 0);
         g_signal_connect (job, "finished",
                           G_CALLBACK (job_finished_cb),
@@ -150,11 +155,18 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                        gint             page)
 {
         gint         jump;
+        gint        current_page =
+                ev_view_presentation_get_current_page (self->presentation);
+        EvDocument *document =
+                ev_view_presentation_get_document (self->presentation);
 
-        if (page < 0 || page >= ev_document_get_n_pages (self->document))
+        ev_view_presentation_update_current_page (self->presentation,
+                                                  page);
+
+        if (page < 0 || page >= ev_document_get_n_pages (document))
                 return;
 
-        jump = page - self->current_page;
+        jump = page - current_page;
 
         switch (jump) {
         case -2:
@@ -350,8 +362,8 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                                             EV_JOB_PRIORITY_LOW);
         }
 
-        if (self->current_page != page) {
-                self->current_page = page;
+        if (current_page != page) {
+                /* self->current_page = page; */
                 g_object_notify (G_OBJECT (self), "current-page");
         }
 
@@ -366,23 +378,32 @@ ev_view_presenter_presentation_end (EvViewPresenter *self)
         /* presentation displays a black screen with */
         /* "End of presentation */
         /* we just notify the presenter in some way */
+
+        /* please draw end slide on presentation too */
 }
 
 void
 ev_view_presenter_previous_page (EvViewPresenter *self)
 {
+        gint current_page =
+                ev_view_presentation_get_current_page (self->presentation);
+
         ev_view_presenter_update_current_page (self,
-                                               self->current_page - 1);
+                                               current_page - 1);
 }
 
 void
 ev_view_presenter_next_page (EvViewPresenter *self)
 {
-        guint n_pages;
-        gint  new_page;
+        guint       n_pages;
+        gint        new_page;
+        gint        current_page =
+                ev_view_presentation_get_current_page (self->presentation);
+        EvDocument *document =
+                ev_view_presentation_get_document (self->presentation);
 
-        n_pages = ev_document_get_n_pages (self->document);
-        new_page = self->current_page + 1;
+        n_pages = ev_document_get_n_pages (document);
+        new_page = current_page + 1;
 
         if (new_page == n_pages)
                 ev_view_presenter_presentation_end (self);
@@ -412,10 +433,10 @@ ev_view_presenter_dispose (GObject *obj)
 {
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (obj);
 
-        if (presenter->document)
+        if (presenter->presentation)
         {
-                g_object_unref (presenter->document);
-                presenter->document = NULL;
+                g_object_unref (presenter->presentation);
+                presenter->presentation = NULL;
         }
 
         G_OBJECT_CLASS (ev_view_presenter_parent_class)->dispose (obj);
@@ -435,37 +456,37 @@ ev_view_presenter_constructor (GType                  type,
        return obj;
 }
 
-static void
-ev_view_presenter_set_current_page (EvViewPresenter *self,
-                                    guint            new_page)
-{
-        if (self->current_page == new_page)
-                return;
+/* static void */
+/* ev_view_presenter_set_current_page (EvViewPresenter *self, */
+/*                                     guint            new_page) */
+/* { */
+/*         if (self->current_page == new_page) */
+/*                 return; */
 
-        ev_view_presenter_update_current_page (self, new_page);
-}
+/*         ev_view_presenter_update_current_page (self, new_page); */
+/* } */
 
-void
-ev_view_presenter_set_rotation (EvViewPresenter *self,
-                                gint             rotation)
-{
-        if (rotation >= 360)
-                rotation %= 360;
-        else if (rotation < 0)
-                rotation = (rotation % 360) + 360;
+/* void */
+/* ev_view_presenter_set_rotation (EvViewPresenter *self, */
+/*                                 gint             rotation) */
+/* { */
+/*         if (rotation >= 360) */
+/*                 rotation %= 360; */
+/*         else if (rotation < 0) */
+/*                 rotation = (rotation % 360) + 360; */
 
-        if (self->rotation == rotation)
-                return;
+/*         if (self->rotation == rotation) */
+/*                 return; */
 
-        self->rotation = rotation;
+/*         self->rotation = rotation; */
 
-        if (self->is_constructing)
-                return;
+/*         if (self->is_constructing) */
+/*                 return; */
 
-        self->scale = 0;
-        ev_view_presenter_update_current_page (self,
-                                               self->current_page);
-}
+/*         self->scale = 0; */
+/*         ev_view_presenter_update_current_page (self, */
+/*                                                self->current_page); */
+/* } */
 
 static void
 ev_view_presenter_set_property (GObject      *obj,
@@ -477,17 +498,20 @@ ev_view_presenter_set_property (GObject      *obj,
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (obj);
 
         switch (prop_id) {
-        case PROP_DOCUMENT:
-                presenter->document = g_value_dup_object (value);
+        case PROP_PRESENTATION:
+                presenter->presentation = g_value_dup_object (value);
                 break;
-        case PROP_CURRENT_PAGE:
-                ev_view_presenter_set_current_page (presenter,
-                                                    g_value_get_uint (value));
-                break;
-        case PROP_ROTATION:
-                ev_view_presenter_set_rotation (presenter,
-                                           g_value_get_int (value));
-                break;
+        /* case PROP_DOCUMENT: */
+        /*         presenter->document = g_value_dup_object (value); */
+        /*         break; */
+        /* case PROP_CURRENT_PAGE: */
+        /*         ev_view_presenter_set_current_page (presenter, */
+        /*                                             g_value_get_uint (value)); */
+        /*         break; */
+        /* case PROP_ROTATION: */
+        /*         ev_view_presenter_set_rotation (presenter, */
+        /*                                    g_value_get_int (value)); */
+        /*         break; */
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
         }
@@ -502,12 +526,12 @@ ev_view_presenter_get_property (GObject    *obj,
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (obj);
 
         switch (prop_id) {
-        case PROP_CURRENT_PAGE:
-                g_value_set_uint (value, presenter->current_page);
-                break;
-        case PROP_ROTATION:
-                g_value_set_int (value, presenter->rotation);
-                break;
+        /* case PROP_CURRENT_PAGE: */
+        /*         g_value_set_uint (value, presenter->current_page); */
+        /*         break; */
+        /* case PROP_ROTATION: */
+        /*         g_value_set_int (value, presenter->rotation); */
+        /*         break; */
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
         }
@@ -536,6 +560,8 @@ init_presenter (GtkWidget *widget)
         GdkScreen       *screen = gtk_widget_get_screen (widget);
         GdkRectangle     monitor;
         gint             monitor_num;
+        gint             current_page =
+                ev_view_presentation_get_current_page (presenter->presentation);
 
         monitor_num = gdk_screen_get_monitor_at_window (screen,
                                                         gtk_widget_get_window (widget));
@@ -543,7 +569,7 @@ init_presenter (GtkWidget *widget)
         presenter->monitor_width = monitor.width;
         presenter->monitor_height = monitor.height;
 
-        ev_view_presenter_update_current_page (presenter, presenter->current_page);
+        ev_view_presenter_update_current_page (presenter, current_page);
 
         return FALSE;
 }
@@ -625,21 +651,28 @@ static gdouble
 ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
                                       gint             page)
 {
-	if (!ev_document_is_page_size_uniform (self->document) || self->scale == 0) {
+        EvDocument *document =
+                ev_view_presentation_get_document (self->presentation);
+        gdouble     scale =
+                ev_view_presentation_get_scale (self->presentation);
+        guint       rotation =
+                ev_view_presentation_get_rotation (self->presentation);
+
+	if (!ev_document_is_page_size_uniform (document) || scale == 0) {
 		gdouble width, height;
 
-		ev_document_get_page_size (self->document, page, &width, &height);
-		if (self->rotation == 90 || self->rotation == 270) {
+		ev_document_get_page_size (document, page, &width, &height);
+		if (rotation == 90 || rotation == 270) {
 			gdouble tmp;
 
 			tmp = width;
 			width = height;
 			height = tmp;
 		}
-		self->scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
+		scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
 	}
 
-	return self->scale;
+	return scale;
 }
 
 
@@ -652,15 +685,21 @@ ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
         gdouble       doc_width, doc_height;
         gint          view_width, view_height;
         gdouble       scale;
+        EvDocument   *document =
+                ev_view_presentation_get_document (self->presentation);
+        gdouble       current_page =
+                ev_view_presentation_get_current_page (self->presentation);
+        guint       rotation =
+                ev_view_presentation_get_rotation (self->presentation);
 
-        ev_document_get_page_size (self->document,
-                                   self->current_page,
+        ev_document_get_page_size (document,
+                                   current_page,
                                    &doc_width, &doc_height);
         scale = ev_view_presenter_get_scale_for_page (self,
-                                                      self->current_page);
+                                                      current_page);
 
 
-	if (self->rotation == 90 || self->rotation == 270) {
+	if (rotation == 90 || rotation == 270) {
 		view_width = (gint)((doc_height * scale) + 0.5);
 		view_height = (gint)((doc_width * scale) + 0.5);
 	} else {
@@ -685,15 +724,21 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
         gdouble       doc_width, doc_height;
         gint          view_width, view_height;
         gdouble       scale;
+        EvDocument   *document =
+                ev_view_presentation_get_document (self->presentation);
+        gdouble       current_page =
+                ev_view_presentation_get_current_page (self->presentation);
+        guint       rotation =
+                ev_view_presentation_get_rotation (self->presentation);
 
-        ev_document_get_page_size (self->document,
-                                   self->current_page + 1,
+        ev_document_get_page_size (document,
+                                   current_page + 1,
                                    &doc_width, &doc_height);
         scale = ev_view_presenter_get_scale_for_page (self,
-                                                      self->current_page + 1);
+                                                      current_page + 1);
 
 
-	if (self->rotation == 90 || self->rotation == 270) {
+	if (rotation == 90 || rotation == 270) {
 		view_width = (gint)((doc_height * scale) + 0.5);
 		view_height = (gint)((doc_width * scale) + 0.5);
 	} else {
@@ -709,29 +754,29 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
 	page_area->height = view_height;
 }
 
-static void
-ev_view_presenter_reset_jobs (EvViewPresenter *self)
-{
-        if (self->curr_job) {
-                ev_view_presenter_delete_job (self, self->curr_job);
-                self->curr_job = NULL;
-        }
+/* static void */
+/* ev_view_presenter_reset_jobs (EvViewPresenter *self) */
+/* { */
+/*         if (self->curr_job) { */
+/*                 ev_view_presenter_delete_job (self, self->curr_job); */
+/*                 self->curr_job = NULL; */
+/*         } */
 
-        if (self->prev_job) {
-                ev_view_presenter_delete_job (self, self->prev_job);
-                self->prev_job = NULL;
-        }
+/*         if (self->prev_job) { */
+/*                 ev_view_presenter_delete_job (self, self->prev_job); */
+/*                 self->prev_job = NULL; */
+/*         } */
 
-        if (self->next_job) {
-                ev_view_presenter_delete_job (self, self->next_job);
-                self->next_job = NULL;
-        }
+/*         if (self->next_job) { */
+/*                 ev_view_presenter_delete_job (self, self->next_job); */
+/*                 self->next_job = NULL; */
+/*         } */
 
-        if (self->last_job) {
-                ev_view_presenter_delete_job (self, self->last_job);
-                self->last_job = NULL;
-        }
-}
+/*         if (self->last_job) { */
+/*                 ev_view_presenter_delete_job (self, self->last_job); */
+/*                 self->last_job = NULL; */
+/*         } */
+/* } */
 
 static gboolean
 ev_view_presenter_draw (GtkWidget *widget,
@@ -808,6 +853,8 @@ ev_view_presenter_key_press_event (GtkWidget   *widget,
                                    GdkEventKey *event)
 {
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (widget);
+        EvDocument      *document =
+                ev_view_presentation_get_document (presenter->presentation);
 
         switch (event->keyval) {
         case GDK_KEY_Home:
@@ -816,8 +863,7 @@ ev_view_presenter_key_press_event (GtkWidget   *widget,
         case GDK_KEY_End:
                 ev_view_presenter_update_current_page (
                         presenter,
-                        ev_document_get_n_pages (
-                                presenter->document) - 1);
+                        ev_document_get_n_pages (document) - 1);
                 return TRUE;
         default:
                 break;
@@ -895,32 +941,42 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
         widget_class->scroll_event = ev_view_presenter_scroll_event;
 
         g_object_class_install_property (gobject_class,
-                                         PROP_DOCUMENT,
-                                         g_param_spec_object ("document",
-                                                              "Document",
-                                                              "Document",
-                                                              EV_TYPE_DOCUMENT,
+                                         PROP_PRESENTATION,
+                                         g_param_spec_object ("presentation",
+                                                              "Presentation",
+                                                              "Running presentation",
+                                                              EV_TYPE_VIEW_PRESENTATION,
                                                               G_PARAM_WRITABLE |
                                                               G_PARAM_CONSTRUCT_ONLY |
                                                               G_PARAM_STATIC_STRINGS));
-        g_object_class_install_property (gobject_class,
-                                         PROP_CURRENT_PAGE,
-                                         g_param_spec_uint ("current-page",
-                                                            "Current Page",
-                                                            "The current page",
-                                                            0, G_MAXUINT, 0,
-                                                            G_PARAM_READWRITE |
-                                                            G_PARAM_CONSTRUCT |
-                                                            G_PARAM_STATIC_STRINGS));
-        g_object_class_install_property (gobject_class,
-                                         PROP_ROTATION,
-                                         g_param_spec_int ("rotation",
-                                                           "Rotation",
-                                                           "Current rotation angle",
-                                                           0, 360, 0,
-                                                           G_PARAM_READWRITE |
-                                                           G_PARAM_CONSTRUCT |
-                                                           G_PARAM_STATIC_STRINGS));
+
+        /* g_object_class_install_property (gobject_class, */
+        /*                                  PROP_DOCUMENT, */
+        /*                                  g_param_spec_object ("document", */
+        /*                                                       "Document", */
+        /*                                                       "Document", */
+        /*                                                       EV_TYPE_DOCUMENT, */
+        /*                                                       G_PARAM_WRITABLE | */
+        /*                                                       G_PARAM_CONSTRUCT_ONLY | */
+        /*                                                       G_PARAM_STATIC_STRINGS)); */
+        /* g_object_class_install_property (gobject_class, */
+        /*                                  PROP_CURRENT_PAGE, */
+        /*                                  g_param_spec_uint ("current-page", */
+        /*                                                     "Current Page", */
+        /*                                                     "The current page", */
+        /*                                                     0, G_MAXUINT, 0, */
+        /*                                                     G_PARAM_READWRITE | */
+        /*                                                     G_PARAM_CONSTRUCT | */
+        /*                                                     G_PARAM_STATIC_STRINGS)); */
+        /* g_object_class_install_property (gobject_class, */
+        /*                                  PROP_ROTATION, */
+        /*                                  g_param_spec_int ("rotation", */
+        /*                                                    "Rotation", */
+        /*                                                    "Current rotation angle", */
+        /*                                                    0, 360, 0, */
+        /*                                                    G_PARAM_READWRITE | */
+        /*                                                    G_PARAM_CONSTRUCT | */
+        /*                                                    G_PARAM_STATIC_STRINGS)); */
 	signals[CHANGE_PAGE] =
 		g_signal_new ("change_page",
 			      G_OBJECT_CLASS_TYPE (gobject_class),
@@ -981,21 +1037,21 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
         g_object_unref (provider);
 }
 
-GtkWidget *
-ev_view_presenter_new (EvDocument *document,
-                       guint       current_page,
-                       guint       rotation)
 /* GtkWidget * */
-/* ev_view_presenter_new (EvViewPresentation *presentation) */
+/* ev_view_presenter_new (EvDocument *document, */
+/*                        guint       current_page, */
+/*                        guint       rotation) */
+GtkWidget *
+ev_view_presenter_new (EvViewPresentation *presentation)
 {
-        g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL);
-        g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL);
+        /* g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL); */
+        /* g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL); */
 
-        return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
-                                         "document", document,
-                                         "current_page", current_page,
-                                         "rotation", rotation, NULL));
         /* return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER, */
-        /*                                  "presentation", presentation, */
-        /*                                  NULL)); */
+        /*                                  "document", document, */
+        /*                                  "current_page", current_page, */
+        /*                                  "rotation", rotation, NULL)); */
+        return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
+                                         "presentation", presentation,
+                                         NULL));
 }
