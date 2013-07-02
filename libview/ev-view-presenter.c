@@ -981,21 +981,21 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
         g_object_unref (provider);
 }
 
+GtkWidget *
+ev_view_presenter_new (EvDocument *document,
+                       guint       current_page,
+                       guint       rotation)
 /* GtkWidget * */
-/* ev_view_presenter_new (EvDocument *document, */
-/*                        guint       current_page, */
-/*                        guint       rotation) */
-GtkWidget
-ev_view_presenter_new (EvViewPresentation *presentation)
+/* ev_view_presenter_new (EvViewPresentation *presentation) */
 {
-        /* g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL); */
-        /* g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL); */
+        g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL);
+        g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL);
 
-        /* return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER, */
-        /*                                  "document", document, */
-        /*                                  "current_page", current_page, */
-        /*                                  "rotation", rotation, NULL)); */
         return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
-                                         "presentation", presentation,
-                                         NULL));
+                                         "document", document,
+                                         "current_page", current_page,
+                                         "rotation", rotation, NULL));
+        /* return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER, */
+        /*                                  "presentation", presentation, */
+        /*                                  NULL)); */
 }
