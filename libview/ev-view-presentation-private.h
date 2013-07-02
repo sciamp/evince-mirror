@@ -18,9 +18,23 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __EV_VIEW_PRESENTATION_PRIVATE__
-#define __EV_VIEW_PRESENTATION_PRIVATE__
+#ifndef __EV_VIEW_PRESENTATION_PRIVATE_H__
+#define __EV_VIEW_PRESENTATION_PRIVATE_H__
+
+typedef enum {
+	EV_PRESENTATION_NORMAL,
+	EV_PRESENTATION_BLACK,
+	EV_PRESENTATION_WHITE,
+	EV_PRESENTATION_END
+} EvPresentationState;
+
+EvDocument         *ev_view_presentation_get_document (EvViewPresentation *pview);
+EvPresentationState ev_view_presentation_get_state (EvViewPresentation *pview);
+gdouble             ev_view_presentation_get_scale (EvViewPresentation *pview);
 
 
 
-#endif /* __EV_VIEW_PRESENTATION_PRIVATE__ */
+
+
+
+#endif /* __EV_VIEW_PRESENTATION_PRIVATE_H__ */
