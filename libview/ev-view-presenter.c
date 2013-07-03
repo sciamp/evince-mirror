@@ -56,7 +56,7 @@ struct _EvViewPresenter
         /* guint               current_page; */
         /* EvDocument         *document; */
         /* guint               rotation; */
-        /* gdouble             scale; */
+        gdouble             scale;
         gint                monitor_width;
         gint                monitor_height;
         cairo_surface_t    *curr_slide_surface;
@@ -653,12 +653,12 @@ ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
 {
         EvDocument *document =
                 ev_view_presentation_get_document (self->presentation);
-        gdouble     scale =
-                ev_view_presentation_get_scale (self->presentation);
+        /* gdouble     scale = */
+        /*         ev_view_presentation_get_scale (self->presentation); */
         guint       rotation =
                 ev_view_presentation_get_rotation (self->presentation);
 
-	if (!ev_document_is_page_size_uniform (document) || scale == 0) {
+	if (!ev_document_is_page_size_uniform (document) || self->scale == 0) {
 		gdouble width, height;
 
 		ev_document_get_page_size (document, page, &width, &height);
@@ -669,10 +669,10 @@ ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
 			width = height;
 			height = tmp;
 		}
-		scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
+		self->scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
 	}
 
-	return scale;
+	return self->scale;
 }
 
 
@@ -687,7 +687,7 @@ ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
         gdouble       scale;
         EvDocument   *document =
                 ev_view_presentation_get_document (self->presentation);
-        gdouble       current_page =
+        gint          current_page =
                 ev_view_presentation_get_current_page (self->presentation);
         guint       rotation =
                 ev_view_presentation_get_rotation (self->presentation);
@@ -726,7 +726,7 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
         gdouble       scale;
         EvDocument   *document =
                 ev_view_presentation_get_document (self->presentation);
-        gdouble       current_page =
+        gint          current_page =
                 ev_view_presentation_get_current_page (self->presentation);
         guint       rotation =
                 ev_view_presentation_get_rotation (self->presentation);
