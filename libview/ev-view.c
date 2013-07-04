@@ -58,6 +58,7 @@ enum {
 	SIGNAL_ANNOT_ADDED,
 	SIGNAL_LAYERS_CHANGED,
 	SIGNAL_MOVE_CURSOR,
+	SIGNAL_CURSOR_MOVED,
 	N_SIGNALS
 };
 
@@ -3806,6 +3807,17 @@ draw_caret_cursor (EvView  *view,
 }
 
 static gboolean
+should_draw_caret_cursor (EvView  *view,
+			  gint     page)
+{
+	return (view->caret_enabled &&
+		view->cursor_page == page &&
+		view->cursor_visible &&
+		gtk_widget_has_focus (GTK_WIDGET (view)) &&
+		!ev_pixbuf_cache_get_selection_region (view->pixbuf_cache, page, view->scale));
+}
+
+static gboolean
 ev_view_draw (GtkWidget *widget,
               cairo_t   *cr)
 {
@@ -3838,7 +3850,7 @@ ev_view_draw (GtkWidget *widget,
 
 		draw_one_page (view, i, cr, &page_area, &border, &clip_rect, &page_ready);
 
-		if (page_ready && view->caret_enabled && view->cursor_page == i && view->cursor_visible)
+		if (page_ready && should_draw_caret_cursor (view, i))
 			draw_caret_cursor (view, cr);
 		if (page_ready && view->find_pages && view->highlight_find_results)
 			highlight_find_results (view, cr, i);
@@ -4022,9 +4034,11 @@ position_caret_cursor_at_location (EvView *view,
 	guint        n_areas = 0;
 	gint         page;
 	gint         offset = -1 ;
+	gint         first_line_offset;
+	gint         last_line_offset = -1;
 	gint         doc_x, doc_y;
 	EvRectangle *rect;
-	guint        i, j;
+	guint        i;
 
 	if (!view->caret_enabled || view->rotation != 0)
 		return FALSE;
@@ -4040,29 +4054,38 @@ position_caret_cursor_at_location (EvView *view,
 	if (!areas)
 		return FALSE;
 
-	/* First look for the line of text at location */
-	for (i = 0; i < n_areas; i++) {
+	i = 0;
+	while (i < n_areas && offset == -1) {
 		rect = areas + i;
 
-		if (doc_y >= rect->y1 && doc_y <= rect->y2)
-			break;
-	}
+		first_line_offset = -1;
+		while (doc_y >= rect->y1 && doc_y <= rect->y2) {
+			if (first_line_offset == -1) {
+				if (doc_x <= rect->x1) {
+					/* Location is before the start of the line */
+					if (last_line_offset != -1) {
+						EvRectangle *last = areas + last_line_offset;
+						gint         dx1, dx2;
 
-	if (i == n_areas)
-		return FALSE;
+						/* If there's a previous line, check distances */
 
-	if (doc_x <= rect->x1) {
-		/* Location is before the start of the line */
-		offset = i;
-	} else {
-		for (j = i; j < n_areas; j++) {
-			rect = areas + j;
+						dx1 = doc_x - last->x2;
+						dx2 = rect->x1 - doc_x;
 
-			if (doc_y < rect->y1) {
-				/* Location is after the end of the line */
-				offset = j;
-				break;
+						if (dx1 < dx2)
+							offset = last_line_offset;
+						else
+							offset = i;
+					} else {
+						offset = i;
+					}
+
+					last_line_offset = i + 1;
+					break;
+				}
+				first_line_offset = i;
 			}
+			last_line_offset = i + 1;
 
 			if (doc_x >= rect->x1 && doc_x <= rect->x2) {
 				/* Location is inside the line. Position the caret before
@@ -4070,19 +4093,25 @@ position_caret_cursor_at_location (EvView *view,
 				 * falls within the left or right half of the bounding box.
 				 */
 				if (doc_x <= rect->x1 + (rect->x2 - rect->x1) / 2)
-					offset = j;
+					offset = i;
 				else
-					offset = j + 1;
+					offset = i + 1;
 				break;
 			}
 
+			i++;
+			rect = areas + i;
 		}
+
+		if (first_line_offset == -1)
+			i++;
 	}
 
-	if (offset == -1) {
-		/* This is the last line and loocation is after the end of the line */
-		offset = n_areas;
-	}
+	if (last_line_offset == -1)
+		return FALSE;
+
+	if (offset == -1)
+		offset = last_line_offset;
 
 	if (view->cursor_offset != offset || view->cursor_page != page) {
 		view->cursor_offset = offset;
@@ -4107,6 +4136,8 @@ position_caret_cursor_for_event (EvView         *view,
 		return FALSE;
 
 	view->cursor_line_offset = area.x;
+
+	g_signal_emit (view, signals[SIGNAL_CURSOR_MOVED], 0, view->cursor_page, view->cursor_offset);
 
 	return TRUE;
 }
@@ -4935,7 +4966,6 @@ cursor_backward_line (EvView *view)
 	PangoLogAttr *log_attrs = NULL;
 	gulong        n_attrs;
 
-	/* FIXME: Keep the line offset when moving between lines */
 	if (!cursor_go_to_line_start (view))
 		return FALSE;
 
@@ -4946,7 +4976,8 @@ cursor_backward_line (EvView *view)
 
 	do {
 		view->cursor_offset--;
-	} while (view->cursor_offset >= 0 && !log_attrs[view->cursor_offset].is_cursor_position);
+	} while (view->cursor_offset >= 0 && !log_attrs[view->cursor_offset].is_mandatory_break);
+	view->cursor_offset = MAX (0, view->cursor_offset);
 
 	return TRUE;
 }
@@ -4984,7 +5015,6 @@ cursor_forward_line (EvView *view)
 	PangoLogAttr *log_attrs = NULL;
 	gulong        n_attrs;
 
-	/* FIXME: Keep the line offset when moving between lines */
 	if (!cursor_go_to_line_end (view))
 		return FALSE;
 
@@ -5089,7 +5119,8 @@ ev_view_move_cursor (EvView         *view,
 		return TRUE;
 
 	if (step == GTK_MOVEMENT_DISPLAY_LINES) {
-		position_caret_cursor_at_location (view, view->cursor_line_offset,
+		position_caret_cursor_at_location (view,
+						   MAX (rect.x, view->cursor_line_offset),
 						   rect.y + (rect.height / 2));
 	} else {
 		view->cursor_line_offset = rect.x;
@@ -5100,6 +5131,8 @@ ev_view_move_cursor (EvView         *view,
 
 	ev_document_model_set_page (view->model, view->cursor_page);
 	ensure_rectangle_is_visible (view, &rect);
+
+	g_signal_emit (view, signals[SIGNAL_CURSOR_MOVED], 0, view->cursor_page, view->cursor_offset);
 
 	/* Select text */
 	if (extend_selection && EV_IS_SELECTION (view->document)) {
@@ -5924,6 +5957,15 @@ ev_view_class_init (EvViewClass *class)
 		         GTK_TYPE_MOVEMENT_STEP,
 			 G_TYPE_INT,
 			 G_TYPE_BOOLEAN);
+	signals[SIGNAL_CURSOR_MOVED] = g_signal_new ("cursor-moved",
+			 G_TYPE_FROM_CLASS (object_class),
+			 G_SIGNAL_RUN_LAST,
+		         0,
+		         NULL, NULL,
+		         ev_view_marshal_VOID__INT_INT,
+		         G_TYPE_NONE, 2,
+		         G_TYPE_INT,
+			 G_TYPE_INT);
 
 	binding_set = gtk_binding_set_by_class (class);
 
@@ -7006,6 +7048,14 @@ ev_view_find_previous (EvView *view)
 }
 
 void
+ev_view_find_set_result (EvView *view, gint page, gint result)
+{
+	ev_document_model_set_page (view->model, page);
+	view->find_result = result;
+	jump_to_find_result (view);
+}
+
+void
 ev_view_find_search_changed (EvView *view)
 {
 	/* search string has changed, focus on new search result */
@@ -7277,63 +7327,31 @@ merge_selection_region (EvView *view,
 			tmp_region = ev_pixbuf_cache_get_selection_region (view->pixbuf_cache,
 									   cur_page,
 									   view->scale);
-			if (tmp_region && !cairo_region_is_empty (tmp_region)) {
+			if (tmp_region)
 				new_sel->covered_region = cairo_region_reference (tmp_region);
-			}
 		}
 
 		/* Now we figure out what needs redrawing */
 		if (old_sel && new_sel) {
 			if (old_sel->covered_region && new_sel->covered_region) {
-				/* We only want to redraw the areas that have
-				 * changed, so we xor the old and new regions
-				 * and redraw if it's different */
-				region = cairo_region_copy (old_sel->covered_region);
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 9, 12)
-				cairo_region_xor (region, new_sel->covered_region);
-#else
-				cairo_region_t *tbr;
-				tbr = cairo_region_copy (new_sel->covered_region);
-
-				/* xor old_sel, new_sel*/
-				cairo_region_subtract (tbr, region);
-				cairo_region_subtract (region, new_sel->covered_region);
-				cairo_region_union (region, tbr);
-				cairo_region_destroy (tbr);
-#endif
-
-				if (cairo_region_is_empty (region)) {
-					cairo_region_destroy (region);
-					region = NULL;
-				} else {
-					gint num_rectangles = cairo_region_num_rectangles (region);
-					GdkRectangle r;
-
-					/* We need to make the damage region a little bigger
-					 * because the edges of the old selection might change
-					 */
-					cairo_region_get_rectangle (region, 0, &r);
-					r.x -= 5;
-					r.width = 5;
-					cairo_region_union_rectangle (region, &r);
-
-					cairo_region_get_rectangle (region, num_rectangles - 1, &r);
-					r.x += r.width;
-					r.width = 5;
-					cairo_region_union_rectangle (region, &r);
+				if (!cairo_region_equal (old_sel->covered_region, new_sel->covered_region)) {
+					/* Anything that was previously or currently selected may
+					 * have changed */
+					region = cairo_region_copy (old_sel->covered_region);
+					cairo_region_union (region, new_sel->covered_region);
 				}
 			} else if (old_sel->covered_region) {
-				region = cairo_region_copy (old_sel->covered_region);
+				region = cairo_region_reference (old_sel->covered_region);
 			} else if (new_sel->covered_region) {
-				region = cairo_region_copy (new_sel->covered_region);
+				region = cairo_region_reference (new_sel->covered_region);
 			}
 		} else if (old_sel && !new_sel) {
 			if (old_sel->covered_region && !cairo_region_is_empty (old_sel->covered_region)) {
-				region = cairo_region_copy (old_sel->covered_region);
+				region = cairo_region_reference (old_sel->covered_region);
 			}
 		} else if (!old_sel && new_sel) {
 			if (new_sel->covered_region && !cairo_region_is_empty (new_sel->covered_region)) {
-				region = cairo_region_copy (new_sel->covered_region);
+				region = cairo_region_reference (new_sel->covered_region);
 			}
 		} else {
 			g_assert_not_reached ();
@@ -7341,15 +7359,34 @@ merge_selection_region (EvView *view,
 
 		/* Redraw the damaged region! */
 		if (region) {
-			GdkRectangle page_area;
-			GtkBorder    border;
+			GdkRectangle    page_area;
+			GtkBorder       border;
+			cairo_region_t *damage_region;
+			gint            i, n_rects;
 
 			ev_view_get_page_extents (view, cur_page, &page_area, &border);
-			cairo_region_translate (region,
-					   page_area.x + border.left - view->scroll_x,
-					   page_area.y + border.top - view->scroll_y);
-			gdk_window_invalidate_region (gtk_widget_get_window (GTK_WIDGET (view)), region, TRUE);
+
+			damage_region = cairo_region_create ();
+			/* Translate the region and grow it 2 pixels because for some zoom levels
+			 * the area actually drawn by cairo is larger than the selected region, due
+			 * to rounding errors or pixel alignment.
+			 */
+			n_rects = cairo_region_num_rectangles (region);
+			for (i = 0; i < n_rects; i++) {
+				cairo_rectangle_int_t rect;
+
+				cairo_region_get_rectangle (region, i, &rect);
+				rect.x += page_area.x + border.left - view->scroll_x - 2;
+				rect.y += page_area.y + border.top - view->scroll_y - 2;
+				rect.width += 4;
+				rect.height += 4;
+				cairo_region_union_rectangle (damage_region, &rect);
+			}
 			cairo_region_destroy (region);
+
+			gdk_window_invalidate_region (gtk_widget_get_window (GTK_WIDGET (view)),
+						      damage_region, TRUE);
+			cairo_region_destroy (damage_region);
 		}
 	}
 
