@@ -33,9 +33,6 @@
 enum {
         PROP_0,
         PROP_PRESENTATION
-        /* PROP_DOCUMENT, */
-        /* PROP_CURRENT_PAGE, */
-        /* PROP_ROTATION, */
 };
 
 enum {
@@ -53,9 +50,6 @@ struct _EvViewPresenter
 
         EvViewPresentation *presentation;
 
-        /* guint               current_page; */
-        /* EvDocument         *document; */
-        /* guint               rotation; */
         gdouble             scale;
         gint                monitor_width;
         gint                monitor_height;
@@ -456,38 +450,6 @@ ev_view_presenter_constructor (GType                  type,
        return obj;
 }
 
-/* static void */
-/* ev_view_presenter_set_current_page (EvViewPresenter *self, */
-/*                                     guint            new_page) */
-/* { */
-/*         if (self->current_page == new_page) */
-/*                 return; */
-
-/*         ev_view_presenter_update_current_page (self, new_page); */
-/* } */
-
-/* void */
-/* ev_view_presenter_set_rotation (EvViewPresenter *self, */
-/*                                 gint             rotation) */
-/* { */
-/*         if (rotation >= 360) */
-/*                 rotation %= 360; */
-/*         else if (rotation < 0) */
-/*                 rotation = (rotation % 360) + 360; */
-
-/*         if (self->rotation == rotation) */
-/*                 return; */
-
-/*         self->rotation = rotation; */
-
-/*         if (self->is_constructing) */
-/*                 return; */
-
-/*         self->scale = 0; */
-/*         ev_view_presenter_update_current_page (self, */
-/*                                                self->current_page); */
-/* } */
-
 static void
 ev_view_presenter_set_property (GObject      *obj,
                                 guint         prop_id,
@@ -501,17 +463,6 @@ ev_view_presenter_set_property (GObject      *obj,
         case PROP_PRESENTATION:
                 presenter->presentation = g_value_dup_object (value);
                 break;
-        /* case PROP_DOCUMENT: */
-        /*         presenter->document = g_value_dup_object (value); */
-        /*         break; */
-        /* case PROP_CURRENT_PAGE: */
-        /*         ev_view_presenter_set_current_page (presenter, */
-        /*                                             g_value_get_uint (value)); */
-        /*         break; */
-        /* case PROP_ROTATION: */
-        /*         ev_view_presenter_set_rotation (presenter, */
-        /*                                    g_value_get_int (value)); */
-        /*         break; */
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
         }
@@ -526,12 +477,10 @@ ev_view_presenter_get_property (GObject    *obj,
         EvViewPresenter *presenter = EV_VIEW_PRESENTER (obj);
 
         switch (prop_id) {
-        /* case PROP_CURRENT_PAGE: */
-        /*         g_value_set_uint (value, presenter->current_page); */
-        /*         break; */
-        /* case PROP_ROTATION: */
-        /*         g_value_set_int (value, presenter->rotation); */
-        /*         break; */
+        case PROP_PRESENTATION:
+                g_value_set_pointer (value, 
+                                     g_object_ref (presenter->presentation));
+                break;
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
         }
@@ -754,30 +703,6 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
 	page_area->height = view_height;
 }
 
-/* static void */
-/* ev_view_presenter_reset_jobs (EvViewPresenter *self) */
-/* { */
-/*         if (self->curr_job) { */
-/*                 ev_view_presenter_delete_job (self, self->curr_job); */
-/*                 self->curr_job = NULL; */
-/*         } */
-
-/*         if (self->prev_job) { */
-/*                 ev_view_presenter_delete_job (self, self->prev_job); */
-/*                 self->prev_job = NULL; */
-/*         } */
-
-/*         if (self->next_job) { */
-/*                 ev_view_presenter_delete_job (self, self->next_job); */
-/*                 self->next_job = NULL; */
-/*         } */
-
-/*         if (self->last_job) { */
-/*                 ev_view_presenter_delete_job (self, self->last_job); */
-/*                 self->last_job = NULL; */
-/*         } */
-/* } */
-
 static gboolean
 ev_view_presenter_draw (GtkWidget *widget,
                         cairo_t   *cr)
@@ -949,34 +874,6 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                               G_PARAM_WRITABLE |
                                                               G_PARAM_CONSTRUCT_ONLY |
                                                               G_PARAM_STATIC_STRINGS));
-
-        /* g_object_class_install_property (gobject_class, */
-        /*                                  PROP_DOCUMENT, */
-        /*                                  g_param_spec_object ("document", */
-        /*                                                       "Document", */
-        /*                                                       "Document", */
-        /*                                                       EV_TYPE_DOCUMENT, */
-        /*                                                       G_PARAM_WRITABLE | */
-        /*                                                       G_PARAM_CONSTRUCT_ONLY | */
-        /*                                                       G_PARAM_STATIC_STRINGS)); */
-        /* g_object_class_install_property (gobject_class, */
-        /*                                  PROP_CURRENT_PAGE, */
-        /*                                  g_param_spec_uint ("current-page", */
-        /*                                                     "Current Page", */
-        /*                                                     "The current page", */
-        /*                                                     0, G_MAXUINT, 0, */
-        /*                                                     G_PARAM_READWRITE | */
-        /*                                                     G_PARAM_CONSTRUCT | */
-        /*                                                     G_PARAM_STATIC_STRINGS)); */
-        /* g_object_class_install_property (gobject_class, */
-        /*                                  PROP_ROTATION, */
-        /*                                  g_param_spec_int ("rotation", */
-        /*                                                    "Rotation", */
-        /*                                                    "Current rotation angle", */
-        /*                                                    0, 360, 0, */
-        /*                                                    G_PARAM_READWRITE | */
-        /*                                                    G_PARAM_CONSTRUCT | */
-        /*                                                    G_PARAM_STATIC_STRINGS)); */
 	signals[CHANGE_PAGE] =
 		g_signal_new ("change_page",
 			      G_OBJECT_CLASS_TYPE (gobject_class),
@@ -1036,21 +933,9 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         g_object_unref (provider);
 }
-
-/* GtkWidget * */
-/* ev_view_presenter_new (EvDocument *document, */
-/*                        guint       current_page, */
-/*                        guint       rotation) */
 GtkWidget *
 ev_view_presenter_new (EvViewPresentation *presentation)
 {
-        /* g_return_val_if_fail (EV_IS_DOCUMENT (document), NULL); */
-        /* g_return_val_if_fail (current_page < ev_document_get_n_pages (document), NULL); */
-
-        /* return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER, */
-        /*                                  "document", document, */
-        /*                                  "current_page", current_page, */
-        /*                                  "rotation", rotation, NULL)); */
         return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
                                          "presentation", presentation,
                                          NULL));
