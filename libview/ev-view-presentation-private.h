@@ -35,6 +35,7 @@ EvPresentationState ev_view_presentation_get_state           (EvViewPresentation
 gdouble             ev_view_presentation_get_scale           (EvViewPresentation *pview);
 void                ev_view_presentation_update_current_page (EvViewPresentation *pview,
                                                               guint               page);
+void                ev_view_presentation_set_end             (EvViewPresentation *pview);
 
 
 

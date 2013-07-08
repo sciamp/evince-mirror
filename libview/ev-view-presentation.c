@@ -172,7 +172,7 @@ ev_view_presentation_set_white (EvViewPresentation *pview)
 	gtk_widget_queue_draw (widget);
 }
 
-static void
+void
 ev_view_presentation_set_end (EvViewPresentation *pview)
 {
 	GtkWidget *widget = GTK_WIDGET (pview);

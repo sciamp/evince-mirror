@@ -147,19 +147,20 @@ static void
 ev_view_presenter_update_current_page (EvViewPresenter *self,
                                        gint             page)
 {
-        gint         jump;
-        gint        current_page =
+        gint               jump;
+        gint               current_page =
                 ev_view_presentation_get_current_page (self->presentation);
-        EvDocument *document =
+        EvDocument         *document =
                 ev_view_presentation_get_document (self->presentation);
-
-        ev_view_presentation_update_current_page (self->presentation,
-                                                  page);
-        gint         document_page_num =
+        gint                document_page_num =
                 ev_document_get_n_pages (document);
+        EvViewPresentation *presentation = self->presentation;
 
         if (page < 0 || page >= document_page_num)
-                return;
+                return; 
+
+        ev_view_presentation_update_current_page (presentation,
+                                                  page);
 
         jump = page - current_page;
 
@@ -359,7 +360,7 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 self->next_job =
                         ev_view_presenter_schedule_new_job (self,
                                                             page + 1,
-                                                            EV_JOB_PRIORITY_HIGH);
+                                                            EV_JOB_PRIORITY_URGENT);
                 self->last_job =
                         ev_view_presenter_schedule_new_job (self,
                                                             page + 2,
@@ -383,6 +384,7 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
 static void
 ev_view_presenter_presentation_end (EvViewPresenter *self)
 {
+        ev_view_presentation_set_end (self->presentation);
 }
 
 void
