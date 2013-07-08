@@ -112,18 +112,17 @@ ev_view_presenter_schedule_new_job (EvViewPresenter *self,
                                     EvJobPriority    priority)
 {
         EvJob      *job;
-        gdouble     scale;
         EvDocument *document =
                 ev_view_presentation_get_document (self->presentation);
 
         if (page < 0 || page >= ev_document_get_n_pages (document))
-                return FALSE;
+                return NULL;
 
-        scale = ev_view_presenter_get_scale_for_page (self, page);
         job = ev_job_render_new (document,
                                  page,
                                  ev_view_presentation_get_rotation (self->presentation),
-                                 scale, 0, 0);
+                                 ev_view_presenter_get_scale_for_page (self, page),
+                                 0, 0);
         g_signal_connect (job, "finished",
                           G_CALLBACK (job_finished_cb),
                           self);
@@ -156,8 +155,10 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
 
         ev_view_presentation_update_current_page (self->presentation,
                                                   page);
+        gint         document_page_num =
+                ev_document_get_n_pages (document);
 
-        if (page < 0 || page >= ev_document_get_n_pages (document))
+        if (page < 0 || page >= document_page_num)
                 return;
 
         jump = page - current_page;
@@ -184,9 +185,14 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 else
                         ev_job_scheduler_update_job (self->next_job,
                                                      EV_JOB_PRIORITY_URGENT);
-
-                ev_job_scheduler_update_job (self->last_job,
-                                             EV_JOB_PRIORITY_LOW);
+                if (!self->last_job)
+                        self->last_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page + 2,
+                                                                    EV_JOB_PRIORITY_LOW);
+                else
+                        ev_job_scheduler_update_job (self->last_job,
+                                                     EV_JOB_PRIORITY_LOW);
 
                 self->prev_job =
                         ev_view_presenter_schedule_new_job (self,
@@ -216,9 +222,14 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                         ev_view_presenter_schedule_new_job (self,
                                                             page - 1,
                                                             EV_JOB_PRIORITY_LOW);
-
-                ev_job_scheduler_update_job (self->last_job,
-                                             EV_JOB_PRIORITY_LOW);
+                if (!self->last_job)
+                        self->last_job =
+                                ev_view_presenter_schedule_new_job (self,
+                                                                    page + 2,
+                                                                    EV_JOB_PRIORITY_LOW);
+                else
+                        ev_job_scheduler_update_job (self->last_job,
+                                                     EV_JOB_PRIORITY_LOW);
 
                 break;
 
@@ -233,6 +244,9 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                 ev_view_presenter_schedule_new_job (self,
                                                                     page,
                                                                     EV_JOB_PRIORITY_URGENT);
+                /* hic sunt blattas */
+                /* sometimes the next slide is visible only after a
+                   mouse click or a keypress event */
                 if (!self->next_job)
                         self->next_job =
                                 ev_view_presenter_schedule_new_job (self,
@@ -361,19 +375,14 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                 g_object_notify (G_OBJECT (self), "current-page");
         }
 
-        if (EV_JOB_RENDER (self->curr_job)->surface &&
-            EV_JOB_RENDER (self->next_job)->surface)
+        if (EV_JOB_RENDER (self->curr_job)->surface/*  && */
+            /* EV_JOB_RENDER (self->next_job)->surface */)
                 gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 static void
 ev_view_presenter_presentation_end (EvViewPresenter *self)
 {
-        /* presentation displays a black screen with */
-        /* "End of presentation */
-        /* we just notify the presenter in some way */
-
-        /* please draw end slide on presentation too */
 }
 
 void
