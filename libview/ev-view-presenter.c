@@ -371,11 +371,6 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                                             EV_JOB_PRIORITY_LOW);
         }
 
-        if (current_page != page) {
-                /* self->current_page = page; */
-                g_object_notify (G_OBJECT (self), "current-page");
-        }
-
         if (EV_JOB_RENDER (self->curr_job)->surface/*  && */
             /* EV_JOB_RENDER (self->next_job)->surface */)
                 gtk_widget_queue_draw (GTK_WIDGET (self));
