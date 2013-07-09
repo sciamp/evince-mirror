@@ -382,19 +382,56 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
 }
 
 static void
+ev_view_presenter_draw_end_page (EvViewPresenter *self,
+                                 cairo_t         *cr)
+{
+	GtkWidget *widget = GTK_WIDGET (self);
+	PangoLayout *layout;
+	PangoFontDescription *font_desc;
+	gchar *markup;
+	const gchar *text = _("End of presentation.");
+
+	layout = gtk_widget_create_pango_layout (widget, NULL);
+	markup = g_strdup_printf ("<span foreground=\"white\">%s</span>", text);
+	pango_layout_set_markup (layout, markup, -1);
+	g_free (markup);
+
+	font_desc = pango_font_description_new ();
+	pango_font_description_set_size (font_desc, 16 * PANGO_SCALE);
+	pango_layout_set_font_description (layout, font_desc);
+
+        gtk_render_layout (gtk_widget_get_style_context (widget),
+                           cr, 15, 15, layout);
+
+	pango_font_description_free (font_desc);
+	g_object_unref (layout);
+}
+
+
+static void
 ev_view_presenter_presentation_end (EvViewPresenter *self)
 {
+        GtkWidget *widget = GTK_WIDGET (self);
+
         ev_view_presentation_set_end (self->presentation);
+
+        gtk_widget_queue_draw (widget);
 }
 
 void
 ev_view_presenter_previous_page (EvViewPresenter *self)
 {
+        gint previous_page;
         gint current_page =
                 ev_view_presentation_get_current_page (self->presentation);
 
-        ev_view_presenter_update_current_page (self,
-                                               current_page - 1);
+        if (ev_view_presentation_get_state (self->presentation) == EV_PRESENTATION_END) {
+                ev_view_presentation_set_normal (self->presentation);
+                previous_page = current_page;
+        } else
+                previous_page = current_page - 1;
+
+        ev_view_presenter_update_current_page (self, previous_page);
 }
 
 void
@@ -669,8 +706,8 @@ ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
 
 	gtk_widget_get_allocation (widget, &allocation);
 
-	page_area->x = 0;//(MAX (0, allocation.width - view_width)) / 2;
-	page_area->y = 0;//(MAX (0, allocation.height - view_height)) / 2;
+	page_area->x = 0;
+	page_area->y = 0;
 	page_area->width = view_width;
 	page_area->height = view_height;
 }
@@ -708,8 +745,8 @@ ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
 
 	gtk_widget_get_allocation (widget, &allocation);
 
-	page_area->x = 0;//(MAX (0, allocation.width - view_width)) / 2;
-	page_area->y = allocation.height / 2;//(MAX (0, allocation.height - view_height)) / 2;
+	page_area->x = 0;
+	page_area->y = allocation.height / 2;
 	page_area->width = view_width;
 	page_area->height = view_height;
 }
@@ -718,15 +755,22 @@ static gboolean
 ev_view_presenter_draw (GtkWidget *widget,
                         cairo_t   *cr)
 {
-        EvViewPresenter *presenter = EV_VIEW_PRESENTER (widget);
-        GdkRectangle     page_area;
-        GdkRectangle     overlap;
-        cairo_surface_t *curr_slide_s;
-        cairo_surface_t *next_slide_s;
-        GdkRectangle     clip_rect;
+        EvViewPresenter    *presenter = EV_VIEW_PRESENTER (widget);
+        EvViewPresentation *presentation = presenter->presentation;
+        GdkRectangle        page_area;
+        GdkRectangle        overlap;
+        cairo_surface_t    *curr_slide_s;
+        cairo_surface_t    *next_slide_s;
+        GdkRectangle        clip_rect;
 
         if (!gdk_cairo_get_clip_rectangle (cr, &clip_rect))
                 return FALSE;
+
+        if (ev_view_presentation_get_state (presentation) == EV_PRESENTATION_END) {
+                ev_view_presenter_draw_end_page (presenter,
+                                                 cr);
+                return;
+        }
 
         curr_slide_s = presenter->curr_job ?
                 EV_JOB_RENDER (presenter->curr_job)->surface : NULL;
