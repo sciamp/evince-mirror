@@ -133,7 +133,7 @@ G_DEFINE_TYPE (EvViewPresentation, ev_view_presentation, GTK_TYPE_WIDGET)
 static GdkRGBA black = { 0., 0., 0., 1. };
 static GdkRGBA white = { 1., 1., 1., 1. };
 
-static void
+void
 ev_view_presentation_set_normal (EvViewPresentation *pview)
 {
 	GtkWidget *widget = GTK_WIDGET (pview);
