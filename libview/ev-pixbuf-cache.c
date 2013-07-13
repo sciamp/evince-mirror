@@ -890,9 +890,9 @@ new_selection_surface_needed (EvPixbufCache *pixbuf_cache,
 			      gint           page,
 			      gfloat         scale)
 {
-	if (job_info->selection || job_info->points_set)
+	if (job_info->selection)
 		return job_info->selection_scale != scale;
-	return FALSE;
+	return job_info->points_set;
 }
 
 static gboolean
@@ -901,9 +901,9 @@ new_selection_region_needed (EvPixbufCache *pixbuf_cache,
 			     gint           page,
 			     gfloat         scale)
 {
-	if (job_info->selection_region || job_info->points_set)
+	if (job_info->selection_region)
 		return job_info->selection_region_scale != scale;
-	return FALSE;
+	return job_info->points_set;
 }
 
 static void
@@ -1138,6 +1138,11 @@ clear_job_selection (CacheJobInfo *job_info)
 		cairo_surface_destroy (job_info->selection);
 		job_info->selection = NULL;
 	}
+
+        if (job_info->selection_region) {
+                cairo_region_destroy (job_info->selection_region);
+                job_info->selection_region = NULL;
+        }
 }
 
 /* This function will reset the selection on pages that no longer have them, and

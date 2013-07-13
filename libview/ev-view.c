@@ -43,6 +43,7 @@
 #include "ev-view-accessible.h"
 #include "ev-view-private.h"
 #include "ev-view-type-builtins.h"
+#include "ev-debug.h"
 
 #define EV_VIEW_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), EV_TYPE_VIEW, EvViewClass))
 #define EV_IS_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), EV_TYPE_VIEW))
@@ -1061,8 +1062,6 @@ ensure_rectangle_is_visible (EvView *view, GdkRectangle *rect)
 			     allocation.width + MARGIN);
 		gtk_adjustment_set_value (view->hadjustment, value);
 	}
-
-	gtk_widget_queue_resize (GTK_WIDGET (view));
 }
 
 /*** Geometry computations ***/
@@ -3127,7 +3126,9 @@ cursor_should_blink (EvView *view)
 {
 	if (view->caret_enabled &&
 	    view->rotation == 0 &&
-	    gtk_widget_has_focus (GTK_WIDGET (view))) {
+	    gtk_widget_has_focus (GTK_WIDGET (view)) &&
+	    view->pixbuf_cache &&
+	    !ev_pixbuf_cache_get_selection_region (view->pixbuf_cache, view->cursor_page, view->scale)) {
 		GtkSettings *settings;
 		gboolean blink;
 
@@ -3817,6 +3818,186 @@ should_draw_caret_cursor (EvView  *view,
 		!ev_pixbuf_cache_get_selection_region (view->pixbuf_cache, page, view->scale));
 }
 
+#ifdef EV_ENABLE_DEBUG
+static void
+stroke_view_rect (cairo_t      *cr,
+		  GdkRectangle *clip,
+		  GdkRectangle *view_rect)
+{
+	GdkRectangle intersect;
+
+	if (gdk_rectangle_intersect (view_rect, clip, &intersect)) {
+		cairo_rectangle (cr,
+				 intersect.x, intersect.y,
+				 intersect.width, intersect.height);
+		cairo_stroke (cr);
+	}
+}
+
+static void
+stroke_doc_rect (EvView       *view,
+		 cairo_t      *cr,
+		 gint          page,
+		 GdkRectangle *clip,
+		 EvRectangle  *doc_rect)
+{
+	GdkRectangle view_rect;
+
+	_ev_view_transform_doc_rect_to_view_rect (view, page, doc_rect, &view_rect);
+	view_rect.x -= view->scroll_x;
+	view_rect.y -= view->scroll_y;
+	stroke_view_rect (cr, clip, &view_rect);
+}
+
+static void
+show_chars_border (EvView       *view,
+		   cairo_t      *cr,
+		   gint          page,
+		   GdkRectangle *clip)
+{
+	EvRectangle *areas = NULL;
+	guint        n_areas = 0;
+	guint        i;
+
+	ev_page_cache_get_text_layout (view->page_cache, page, &areas, &n_areas);
+	if (!areas)
+		return;
+
+	cairo_set_source_rgb (cr, 1., 0., 0.);
+
+	for (i = 0; i < n_areas; i++) {
+		EvRectangle  *doc_rect = areas + i;
+
+		stroke_doc_rect (view, cr, page, clip, doc_rect);
+	}
+}
+
+static void
+show_mapping_list_border (EvView        *view,
+			  cairo_t       *cr,
+			  gint           page,
+			  GdkRectangle  *clip,
+			  EvMappingList *mapping_list)
+{
+	GList *l;
+
+	for (l = ev_mapping_list_get_list (mapping_list); l; l = g_list_next (l)) {
+		EvMapping *mapping = (EvMapping *)l->data;
+
+		stroke_doc_rect (view, cr, page, clip, &mapping->area);
+	}
+}
+
+static void
+show_links_border (EvView       *view,
+		   cairo_t      *cr,
+		   gint          page,
+		   GdkRectangle *clip)
+{
+	cairo_set_source_rgb (cr, 0., 0., 1.);
+	show_mapping_list_border (view,cr, page, clip,
+				  ev_page_cache_get_link_mapping (view->page_cache, page));
+}
+
+static void
+show_forms_border (EvView       *view,
+		   cairo_t      *cr,
+		   gint          page,
+		   GdkRectangle *clip)
+{
+	cairo_set_source_rgb (cr, 0., 1., 0.);
+	show_mapping_list_border (view, cr, page, clip,
+				  ev_page_cache_get_form_field_mapping (view->page_cache, page));
+}
+
+static void
+show_annots_border (EvView       *view,
+		    cairo_t      *cr,
+		    gint          page,
+		    GdkRectangle *clip)
+{
+	cairo_set_source_rgb (cr, 0., 1., 1.);
+	show_mapping_list_border (view, cr, page, clip,
+				  ev_page_cache_get_annot_mapping (view->page_cache, page));
+}
+
+static void
+show_images_border (EvView       *view,
+		    cairo_t      *cr,
+		    gint          page,
+		    GdkRectangle *clip)
+{
+	cairo_set_source_rgb (cr, 1., 0., 1.);
+	show_mapping_list_border (view, cr, page, clip,
+				  ev_page_cache_get_image_mapping (view->page_cache, page));
+}
+
+static void
+show_selections_border (EvView       *view,
+			cairo_t      *cr,
+			gint          page,
+			GdkRectangle *clip)
+{
+	cairo_region_t *region;
+	guint           i, n_rects;
+	GdkRectangle    page_area;
+	GtkBorder       border;
+
+	region = ev_page_cache_get_text_mapping (view->page_cache, page);
+	if (!region)
+		return;
+
+	cairo_set_source_rgb (cr, 0.75, 0.50, 0.25);
+
+	ev_view_get_page_extents (view, page, &page_area, &border);
+
+	region = cairo_region_copy (region);
+	cairo_region_intersect_rectangle (region, clip);
+	n_rects = cairo_region_num_rectangles (region);
+	for (i = 0; i < n_rects; i++) {
+		GdkRectangle view_rect;
+
+		cairo_region_get_rectangle (region, i, &view_rect);
+		view_rect.x = (gint)(view_rect.x * view->scale + 0.5);
+		view_rect.y = (gint)(view_rect.y * view->scale + 0.5);
+		view_rect.width = (gint)(view_rect.width * view->scale + 0.5);
+		view_rect.height = (gint)(view_rect.height * view->scale + 0.5);
+
+		view_rect.x += page_area.x + border.left - view->scroll_x;
+		view_rect.y += page_area.y + border.right - view->scroll_y;
+		stroke_view_rect (cr, clip, &view_rect);
+	}
+	cairo_region_destroy (region);
+}
+
+static void
+draw_debug_borders (EvView       *view,
+		    cairo_t      *cr,
+		    gint          page,
+		    GdkRectangle *clip)
+{
+	EvDebugBorders borders = ev_debug_get_debug_borders();
+
+	cairo_save (cr);
+	cairo_set_line_width (cr, 0.5);
+
+	if (borders & EV_DEBUG_BORDER_CHARS)
+		show_chars_border (view, cr, page, clip);
+	if (borders & EV_DEBUG_BORDER_LINKS)
+		show_links_border (view, cr, page, clip);
+	if (borders & EV_DEBUG_BORDER_FORMS)
+		show_forms_border (view, cr, page, clip);
+	if (borders & EV_DEBUG_BORDER_ANNOTS)
+		show_annots_border (view, cr, page, clip);
+	if (borders & EV_DEBUG_BORDER_IMAGES)
+		show_images_border (view, cr, page, clip);
+	if (borders & EV_DEBUG_BORDER_SELECTIONS)
+		show_selections_border (view, cr, page, clip);
+
+	cairo_restore (cr);
+}
+#endif
+
 static gboolean
 ev_view_draw (GtkWidget *widget,
               cairo_t   *cr)
@@ -3860,6 +4041,10 @@ ev_view_draw (GtkWidget *widget,
                         focus_annotation (view, cr, i, &clip_rect);
 		if (page_ready && view->synctex_result)
 			highlight_forward_search_results (view, cr, i);
+#ifdef EV_ENABLE_DEBUG
+		if (page_ready)
+			draw_debug_borders (view, cr, i, &clip_rect);
+#endif
 	}
 
         if (GTK_WIDGET_CLASS (ev_view_parent_class)->draw)
@@ -4205,8 +4390,6 @@ ev_view_button_press_event (GtkWidget      *widget,
 						ev_view_pend_cursor_blink (view);
 					}
 				}
-
-				gtk_widget_queue_draw (widget);
 			} else if ((annot = ev_view_get_annotation_at_location (view, event->x, event->y))) {
 				ev_view_handle_annotation (view, annot, event->x, event->y, event->time);
 			} else if ((field = ev_view_get_form_field_at_location (view, event->x, event->y))) {
@@ -4689,11 +4872,8 @@ ev_view_button_release_event (GtkWidget      *widget,
 
 		position_caret_cursor_for_event (view, event);
 
-		if (view->selection_info.in_drag) {
+		if (view->selection_info.in_drag)
 			clear_selection (view);
-			gtk_widget_queue_draw (widget);
-		}
-		
 		view->selection_info.in_drag = FALSE;
 	} else if (link) {
 		if (event->button == 2) {
@@ -5098,7 +5278,7 @@ ev_view_move_cursor (EvView         *view,
 	GdkRectangle rect;
 	gint         prev_offset;
 	gint         prev_page;
-	gboolean     clearing_selections = FALSE;
+	gboolean     clear_selections = FALSE;
 
 	if (!view->caret_enabled || view->rotation != 0)
 		return FALSE;
@@ -5109,11 +5289,11 @@ ev_view_move_cursor (EvView         *view,
 	prev_offset = view->cursor_offset;
 	prev_page = view->cursor_page;
 
+	clear_selections = !extend_selection && view->selection_info.selections != NULL;
+
 	switch (step) {
 	case GTK_MOVEMENT_VISUAL_POSITIONS:
-		if (!extend_selection && cursor_clear_selection (view, count > 0)) {
-			clearing_selections = TRUE;
-		} else {
+		if (!clear_selections || !cursor_clear_selection (view, count > 0)) {
 			while (count > 0) {
 				cursor_forward_char (view);
 				count--;
@@ -5157,7 +5337,7 @@ ev_view_move_cursor (EvView         *view,
 	ev_view_pend_cursor_blink (view);
 
 	/* Notify the user that it was not possible to move the caret cursor */
-	if (!clearing_selections &&
+	if (!clear_selections &&
 	    prev_offset == view->cursor_offset && prev_page == view->cursor_page) {
 		gtk_widget_error_bell (GTK_WIDGET (view));
 		return TRUE;
@@ -5171,6 +5351,11 @@ ev_view_move_cursor (EvView         *view,
 		position_caret_cursor_at_location (view,
 						   MAX (rect.x, view->cursor_line_offset),
 						   rect.y + (rect.height / 2));
+		if (!clear_selections &&
+		    prev_offset == view->cursor_offset && prev_page == view->cursor_page) {
+			gtk_widget_error_bell (GTK_WIDGET (view));
+			return TRUE;
+		}
 	} else {
 		view->cursor_line_offset = rect.x;
 	}
@@ -5198,7 +5383,7 @@ ev_view_move_cursor (EvView         *view,
 		end_point.y = rect.y + rect.height / 2;
 
 		extend_selection_from_cursor (view, &start_point, &end_point);
-	} else
+	} else if (clear_selections)
 		clear_selection (view);
 
 	gtk_widget_queue_draw (GTK_WIDGET (view));
@@ -5574,7 +5759,10 @@ ev_view_finalize (GObject *object)
 {
 	EvView *view = EV_VIEW (object);
 
-	clear_selection (view);
+	if (view->selection_info.selections) {
+		g_list_free_full (view->selection_info.selections, (GDestroyNotify)selection_free);
+		view->selection_info.selections = NULL;
+	}
 	clear_link_selected (view);
 
 	if (view->synctex_result) {
@@ -6035,14 +6223,34 @@ ev_view_class_init (EvViewClass *class)
         add_scroll_binding_keypad (binding_set, GDK_KEY_Down,  0, GTK_SCROLL_STEP_FORWARD, GTK_ORIENTATION_VERTICAL);
         add_scroll_binding_keypad (binding_set, GDK_KEY_Up,    GDK_MOD1_MASK, GTK_SCROLL_STEP_DOWN, GTK_ORIENTATION_VERTICAL);
         add_scroll_binding_keypad (binding_set, GDK_KEY_Down,  GDK_MOD1_MASK, GTK_SCROLL_STEP_UP, GTK_ORIENTATION_VERTICAL);
-        gtk_binding_entry_add_signal (binding_set, GDK_KEY_H, 0, "scroll", 2, GTK_TYPE_SCROLL_TYPE,
-				      GTK_SCROLL_STEP_BACKWARD, G_TYPE_BOOLEAN, GTK_ORIENTATION_HORIZONTAL);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_J, 0, "scroll", 2, GTK_TYPE_SCROLL_TYPE,
-				      GTK_SCROLL_STEP_FORWARD, G_TYPE_BOOLEAN, GTK_ORIENTATION_VERTICAL);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_K, 0, "scroll", 2, GTK_TYPE_SCROLL_TYPE,
-				      GTK_SCROLL_STEP_BACKWARD, G_TYPE_BOOLEAN, GTK_ORIENTATION_VERTICAL);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_L, 0, "scroll", 2, GTK_TYPE_SCROLL_TYPE,
-				      GTK_SCROLL_STEP_FORWARD, G_TYPE_BOOLEAN, GTK_ORIENTATION_HORIZONTAL);
+	add_scroll_binding_keypad (binding_set, GDK_KEY_Page_Up, 0, GTK_SCROLL_PAGE_BACKWARD, GTK_ORIENTATION_VERTICAL);
+	add_scroll_binding_keypad (binding_set, GDK_KEY_Page_Down, 0, GTK_SCROLL_PAGE_FORWARD, GTK_ORIENTATION_VERTICAL);
+	add_scroll_binding_keypad (binding_set, GDK_KEY_Return, 0, GTK_SCROLL_PAGE_FORWARD, GTK_ORIENTATION_VERTICAL);
+	add_scroll_binding_keypad (binding_set, GDK_KEY_Return, GDK_SHIFT_MASK, GTK_SCROLL_PAGE_BACKWARD, GTK_ORIENTATION_VERTICAL);
+        gtk_binding_entry_add_signal (binding_set, GDK_KEY_H, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_BACKWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_HORIZONTAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_J, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_FORWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_K, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_BACKWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_L, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_FORWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_HORIZONTAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_space, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_space, GDK_SHIFT_MASK, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_BackSpace, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_BackSpace, GDK_SHIFT_MASK, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
 }
 
 static void
@@ -6227,6 +6435,7 @@ setup_caches (EvView *view)
 				 ev_page_cache_get_flags (view->page_cache) |
 				 EV_PAGE_DATA_INCLUDE_TEXT_LAYOUT |
 				 EV_PAGE_DATA_INCLUDE_TEXT |
+				 EV_PAGE_DATA_INCLUDE_TEXT_ATTRS |
 		                 EV_PAGE_DATA_INCLUDE_TEXT_LOG_ATTRS);
 
 	inverted_colors = ev_document_model_get_inverted_colors (view->model);
@@ -7439,6 +7648,8 @@ merge_selection_region (EvView *view,
 		}
 	}
 
+	ev_view_check_cursor_blink (view);
+
 	/* Free the old list, now that we're done with it. */
 	g_list_free_full (old_list, (GDestroyNotify)selection_free);
 }
@@ -7471,15 +7682,7 @@ selection_free (EvViewSelection *selection)
 static void
 clear_selection (EvView *view)
 {
-	if (view->selection_info.selections) {
-		g_list_free_full (view->selection_info.selections, (GDestroyNotify)selection_free);
-		view->selection_info.selections = NULL;
-
-		g_signal_emit (view, signals[SIGNAL_SELECTION_CHANGED], 0, NULL);
-	}
-
-	if (view->pixbuf_cache)
-		ev_pixbuf_cache_set_selection_list (view->pixbuf_cache, NULL);
+	merge_selection_region (view, NULL);
 }
 
 void
@@ -7492,8 +7695,6 @@ ev_view_select_all (EvView *view)
 	if (view->rotation != 0)
 		return;
 
-	clear_selection (view);
-	
 	n_pages = ev_document_get_n_pages (view->document);
 	for (i = 0; i < n_pages; i++) {
 		gdouble width, height;

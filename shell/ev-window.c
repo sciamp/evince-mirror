@@ -3773,13 +3773,13 @@ ev_window_cmd_focus_page_selector (GtkAction *act, EvWindow *window)
 static void
 ev_window_cmd_scroll_forward (GtkAction *action, EvWindow *window)
 {
-	ev_view_scroll (EV_VIEW (window->priv->view), GTK_SCROLL_PAGE_FORWARD, FALSE);
+	g_signal_emit_by_name (window->priv->view, "scroll", GTK_SCROLL_PAGE_FORWARD, GTK_ORIENTATION_VERTICAL);
 }
 
 static void
 ev_window_cmd_scroll_backward (GtkAction *action, EvWindow *window)
 {
-	ev_view_scroll (EV_VIEW (window->priv->view), GTK_SCROLL_PAGE_BACKWARD, FALSE);
+	g_signal_emit_by_name (window->priv->view, "scroll", GTK_SCROLL_PAGE_BACKWARD, GTK_ORIENTATION_VERTICAL);
 }
 
 static void
@@ -5427,14 +5427,6 @@ find_bar_visibility_changed_cb (EggFindBar *find_bar,
 }
 
 static void
-find_bar_scroll (EggFindBar   *find_bar,
-		 GtkScrollType scroll,
-		 EvWindow     *ev_window)
-{
-	ev_view_scroll (EV_VIEW (ev_window->priv->view), scroll, FALSE);
-}
-
-static void
 update_toggle_find_action (EvWindow *ev_window,
 			   gboolean  active)
 {
@@ -5929,18 +5921,6 @@ static const GtkActionEntry entries[] = {
         { "PageDown", NULL, "", "Page_Down", NULL,
           G_CALLBACK (ev_window_cmd_scroll_forward) },
         { "PageUp", NULL, "", "Page_Up", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_backward) },
-        { "Space", NULL, "", "space", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_forward) },
-        { "ShiftSpace", NULL, "", "<shift>space", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_backward) },
-        { "BackSpace", NULL, "", "BackSpace", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_backward) },
-        { "ShiftBackSpace", NULL, "", "<shift>BackSpace", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_forward) },
-        { "Return", NULL, "", "Return", NULL,
-          G_CALLBACK (ev_window_cmd_scroll_forward) },
-        { "ShiftReturn", NULL, "", "<shift>Return", NULL,
           G_CALLBACK (ev_window_cmd_scroll_backward) },
 	{ "p", GTK_STOCK_GO_UP, "", "p", NULL,
 	  G_CALLBACK (ev_window_cmd_go_previous_page) },
@@ -7476,10 +7456,6 @@ ev_window_init (EvWindow *ev_window)
 	g_signal_connect (ev_window->priv->find_bar,
 			  "notify::visible",
 			  G_CALLBACK (find_bar_visibility_changed_cb),
-			  ev_window);
-	g_signal_connect (ev_window->priv->find_bar,
-			  "scroll",
-			  G_CALLBACK (find_bar_scroll),
 			  ev_window);
 
 	/* Popups */
