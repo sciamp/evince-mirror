@@ -50,6 +50,7 @@ struct _EvViewPresenter
 
         EvViewPresentation *presentation;
 
+        gint                current_page;
         gdouble             scale;
         gint                monitor_width;
         gint                monitor_height;
@@ -64,18 +65,17 @@ struct _EvViewPresenter
 
 struct _EvViewPresenterClass
 {
-        GtkWidgetClass        base_class;
+        GtkWidgetClass                   base_class;
 
-        void (* change_page) (EvViewPresenter *self,
-                              GtkScrollType    scroll);
-        void (* finished)    (EvViewPresenter *self);
+        void (* change_page)            (EvViewPresenter *self,
+                                         GtkScrollType    scroll);
+        void (* finished)               (EvViewPresenter *self);
 };
 
 static guint signals[N_SIGNALS] = { 0 }; 
 
 static gdouble ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
                                                      gint             page);
-
 
 G_DEFINE_TYPE (EvViewPresenter, ev_view_presenter, GTK_TYPE_WIDGET)
 
@@ -148,8 +148,6 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                        gint             page)
 {
         gint               jump;
-        gint               current_page =
-                ev_view_presentation_get_current_page (self->presentation);
         EvDocument         *document =
                 ev_view_presentation_get_document (self->presentation);
         gint                document_page_num =
@@ -162,7 +160,7 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
         ev_view_presentation_update_current_page (presentation,
                                                   page);
 
-        jump = page - current_page;
+        jump = page - self->current_page;
 
         switch (jump) {
         case -2:
@@ -371,6 +369,9 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                                             EV_JOB_PRIORITY_LOW);
         }
 
+        if (self->current_page != page)
+                self->current_page = page;
+
         if (EV_JOB_RENDER (self->curr_job)->surface/*  && */
             /* EV_JOB_RENDER (self->next_job)->surface */)
                 gtk_widget_queue_draw (GTK_WIDGET (self));
@@ -479,6 +480,22 @@ ev_view_presenter_dispose (GObject *obj)
         G_OBJECT_CLASS (ev_view_presenter_parent_class)->dispose (obj);
 }
 
+static void
+sync_with_presentation (GObject    *obj,
+                        GParamSpec *pspec,
+                        gpointer    data)
+{
+        EvViewPresentation *presentation;
+        gint             current_page;
+
+        presentation = EV_VIEW_PRESENTATION (obj);
+
+        current_page =
+                ev_view_presentation_get_current_page (presentation);
+
+        ev_view_presenter_update_current_page (data, current_page);
+}
+
 static GObject *
 ev_view_presenter_constructor (GType                  type,
                                guint                  n_construct_properties,
@@ -489,6 +506,13 @@ ev_view_presenter_constructor (GType                  type,
         obj = G_OBJECT_CLASS (ev_view_presenter_parent_class)->constructor (type,
                                                                             n_construct_properties,
                                                                             construct_params);
+
+        EvViewPresenter *presenter = EV_VIEW_PRESENTER (obj);
+
+        g_signal_connect (presenter->presentation,
+                          "notify::current-page",
+                          G_CALLBACK (sync_with_presentation),
+                          presenter);
  
        return obj;
 }
@@ -560,6 +584,7 @@ init_presenter (GtkWidget *widget)
         gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
         presenter->monitor_width = monitor.width;
         presenter->monitor_height = monitor.height;
+        presenter->current_page = current_page;
 
         ev_view_presenter_update_current_page (presenter, current_page);
 
@@ -764,7 +789,7 @@ ev_view_presenter_draw (GtkWidget *widget,
         if (ev_view_presentation_get_state (presentation) == EV_PRESENTATION_END) {
                 ev_view_presenter_draw_end_page (presenter,
                                                  cr);
-                return;
+                return FALSE;
         }
 
         curr_slide_s = presenter->curr_job ?
