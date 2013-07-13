@@ -157,9 +157,6 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
         if (page < 0 || page >= document_page_num)
                 return; 
 
-        ev_view_presentation_update_current_page (presentation,
-                                                  page);
-
         jump = page - self->current_page;
 
         switch (jump) {
@@ -371,6 +368,11 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
 
         if (self->current_page != page)
                 self->current_page = page;
+
+        if (self->current_page !=
+            ev_view_presentation_get_current_page (presentation))
+                ev_view_presentation_update_current_page (presentation,
+                                                          page);
 
         if (EV_JOB_RENDER (self->curr_job)->surface/*  && */
             /* EV_JOB_RENDER (self->next_job)->surface */)
