@@ -92,7 +92,8 @@ ev_view_presenter_job_is_current (EvViewPresenter *self,
 {
         gboolean     current = FALSE;
 
-        if (self->curr_job == job)
+        if (self->curr_job == job ||
+            self->next_job == job)
                 current = TRUE;
 
         return current;
