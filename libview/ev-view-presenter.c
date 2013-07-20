@@ -44,23 +44,24 @@ enum {
 
 struct _EvViewPresenter
 {
-        GtkWidget           base;
+        GtkWidget            base;
 
-        guint               is_constructing : 1;
+        guint                is_constructing : 1;
 
-        EvViewPresentation *presentation;
+        EvViewPresentation  *presentation;
+        GtkWidget           *notes;
 
-        gint                current_page;
-        gdouble             scale;
-        gint                monitor_width;
-        gint                monitor_height;
-        cairo_surface_t    *curr_slide_surface;
-        cairo_surface_t    *next_slide_surface;
+        gint                 current_page;
+        gdouble              scale;
+        gint                 monitor_width;
+        gint                 monitor_height;
+        cairo_surface_t     *curr_slide_surface;
+        cairo_surface_t     *next_slide_surface;
 
-        EvJob              *prev_job;
-        EvJob              *curr_job;
-        EvJob              *next_job;
-        EvJob              *last_job;
+        EvJob               *prev_job;
+        EvJob               *curr_job;
+        EvJob               *next_job;
+        EvJob               *last_job;
 };
 
 struct _EvViewPresenterClass
@@ -367,8 +368,11 @@ ev_view_presenter_update_current_page (EvViewPresenter *self,
                                                             EV_JOB_PRIORITY_LOW);
         }
 
-        if (self->current_page != page)
+        if (self->current_page != page) {
                 self->current_page = page;
+                ev_view_presenter_note_for_page (EV_VIEW_PRESENTER_NOTE (self->notes),
+                                                 page);
+        }
 
         if (self->current_page !=
             ev_view_presentation_get_current_page (presentation))
@@ -516,7 +520,11 @@ ev_view_presenter_constructor (GType                  type,
                           "notify::current-page",
                           G_CALLBACK (sync_with_presentation),
                           presenter);
- 
+
+        /* NB I'm having some troubles with ev_document_get_uri */
+        /* this string is ONLY for testing purpose */
+        presenter->notes = ev_view_presenter_note_new ("/home/sciamp/test.notes"); 
+
        return obj;
 }
 
@@ -590,7 +598,8 @@ init_presenter (GtkWidget *widget)
         presenter->current_page = current_page;
 
         ev_view_presenter_update_current_page (presenter, current_page);
-
+        ev_view_presenter_note_for_page (EV_VIEW_PRESENTER_NOTE (presenter->notes),
+                                         current_page);
         return FALSE;
 }
 
@@ -1011,10 +1020,23 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         g_object_unref (provider);
 }
+
 GtkWidget *
 ev_view_presenter_new (EvViewPresentation *presentation)
 {
-        return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
-                                         "presentation", presentation,
-                                         NULL));
+        GtkWidget *hbox;
+        GtkWidget *presenter;
+
+        hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+
+        presenter = GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER,
+                                              "presentation", presentation,
+                                              NULL));
+
+        gtk_box_pack_start (GTK_BOX (hbox), presenter, TRUE, TRUE, 0);
+        gtk_box_pack_end (GTK_BOX (hbox), 
+                          EV_VIEW_PRESENTER (presenter)->notes,
+                          FALSE, FALSE, 0);
+
+        return hbox;
 }
