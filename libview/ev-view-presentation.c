@@ -87,6 +87,12 @@ struct _EvViewPresentation
 };
 
 /* getter/setter for EvViewPresenter */
+const gchar *
+ev_view_presentation_get_document_uri (EvViewPresentation *pview)
+{
+        return ev_document_get_uri (pview->document);
+}
+
 EvDocument *
 ev_view_presentation_get_document (EvViewPresentation *pview)
 {
