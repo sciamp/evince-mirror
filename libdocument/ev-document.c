@@ -395,7 +395,8 @@ ev_document_load_gfile (EvDocument         *document,
                         GCancellable       *cancellable,
                         GError            **error)
 {
-        EvDocumentClass *klass;
+        EvDocumentClass   *klass;
+	EvDocumentPrivate *priv;
 
         g_return_val_if_fail (EV_IS_DOCUMENT (document), FALSE);
         g_return_val_if_fail (G_IS_FILE (file), FALSE);
@@ -413,6 +414,10 @@ ev_document_load_gfile (EvDocument         *document,
                 return FALSE;
 
         ev_document_setup_cache (document);
+
+	priv = document->priv;
+	priv->uri = g_file_get_uri (file);
+	priv->info = _ev_document_get_info (document);
 
         return TRUE;
 }
