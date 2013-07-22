@@ -4210,11 +4210,11 @@ start_selection_for_event (EvView         *view,
 			    &(view->selection_info.start));
 }
 
-static gboolean
-position_caret_cursor_at_doc_point (EvView *view,
-				    gint    page,
-				    gdouble doc_x,
-				    gdouble doc_y)
+gint
+_ev_view_get_caret_cursor_offset_at_doc_point (EvView *view,
+					       gint    page,
+					       gdouble doc_x,
+					       gdouble doc_y)
 {
 	EvRectangle *areas = NULL;
 	guint        n_areas = 0;
@@ -4226,7 +4226,7 @@ position_caret_cursor_at_doc_point (EvView *view,
 
 	ev_page_cache_get_text_layout (view->page_cache, page, &areas, &n_areas);
 	if (!areas)
-		return FALSE;
+		return -1;
 
 	i = 0;
 	while (i < n_areas && offset == -1) {
@@ -4282,10 +4282,25 @@ position_caret_cursor_at_doc_point (EvView *view,
 	}
 
 	if (last_line_offset == -1)
-		return FALSE;
+		return -1;
 
 	if (offset == -1)
 		offset = last_line_offset;
+
+	return offset;
+}
+
+static gboolean
+position_caret_cursor_at_doc_point (EvView *view,
+				    gint    page,
+				    gdouble doc_x,
+				    gdouble doc_y)
+{
+	gint offset;
+
+	offset = _ev_view_get_caret_cursor_offset_at_doc_point (view, page, doc_x, doc_y);
+	if (offset == -1)
+		return FALSE;
 
 	if (view->cursor_offset != offset || view->cursor_page != page) {
 		view->cursor_offset = offset;
@@ -4320,9 +4335,14 @@ position_caret_cursor_at_location (EvView *view,
 
 static gboolean
 position_caret_cursor_for_event (EvView         *view,
-				 GdkEventButton *event)
+				 GdkEventButton *event,
+				 gboolean        redraw)
 {
 	GdkRectangle area;
+	GdkRectangle prev_area = { 0, 0, 0, 0 };
+
+	if (redraw)
+		get_caret_cursor_area (view, view->cursor_page, view->cursor_offset, &prev_area);
 
 	if (!position_caret_cursor_at_location (view, event->x, event->y))
 		return FALSE;
@@ -4333,6 +4353,16 @@ position_caret_cursor_for_event (EvView         *view,
 	view->cursor_line_offset = area.x;
 
 	g_signal_emit (view, signals[SIGNAL_CURSOR_MOVED], 0, view->cursor_page, view->cursor_offset);
+
+	if (redraw) {
+		cairo_region_t *damage_region;
+
+		damage_region = cairo_region_create_rectangle (&prev_area);
+		cairo_region_union_rectangle (damage_region, &area);
+		gdk_window_invalidate_region (gtk_widget_get_window (GTK_WIDGET (view)),
+					      damage_region, TRUE);
+		cairo_region_destroy (damage_region);
+	}
 
 	return TRUE;
 }
@@ -4385,7 +4415,7 @@ ev_view_button_press_event (GtkWidget      *widget,
 					view->selection_info.in_drag = TRUE;
 				} else {
 					start_selection_for_event (view, event);
-					if (position_caret_cursor_for_event (view, event)) {
+					if (position_caret_cursor_for_event (view, event, TRUE)) {
 						view->cursor_blink_time = 0;
 						ev_view_pend_cursor_blink (view);
 					}
@@ -4419,11 +4449,9 @@ ev_view_button_press_event (GtkWidget      *widget,
 				if (EV_IS_SELECTION (view->document))
 					start_selection_for_event (view, event);
 
-				if (position_caret_cursor_for_event (view, event)) {
+				if (position_caret_cursor_for_event (view, event, TRUE)) {
 					view->cursor_blink_time = 0;
 					ev_view_pend_cursor_blink (view);
-
-					gtk_widget_queue_draw (widget);
 				}
 			}
 		}			
@@ -4870,7 +4898,7 @@ ev_view_button_release_event (GtkWidget      *widget,
 		clear_link_selected (view);
 		ev_view_update_primary_selection (view);
 
-		position_caret_cursor_for_event (view, event);
+		position_caret_cursor_for_event (view, event, FALSE);
 
 		if (view->selection_info.in_drag)
 			clear_selection (view);
@@ -5275,10 +5303,12 @@ ev_view_move_cursor (EvView         *view,
 		     gint            count,
 		     gboolean        extend_selection)
 {
-	GdkRectangle rect;
-	gint         prev_offset;
-	gint         prev_page;
-	gboolean     clear_selections = FALSE;
+	GdkRectangle    rect;
+	GdkRectangle    prev_rect;
+	gint            prev_offset;
+	gint            prev_page;
+	cairo_region_t *damage_region;
+	gboolean        clear_selections = FALSE;
 
 	if (!view->caret_enabled || view->rotation != 0)
 		return FALSE;
@@ -5356,9 +5386,16 @@ ev_view_move_cursor (EvView         *view,
 			gtk_widget_error_bell (GTK_WIDGET (view));
 			return TRUE;
 		}
+
+		if (!get_caret_cursor_area (view, view->cursor_page, view->cursor_offset, &rect))
+			return TRUE;
 	} else {
 		view->cursor_line_offset = rect.x;
 	}
+
+	damage_region = cairo_region_create_rectangle (&rect);
+	if (get_caret_cursor_area (view, prev_page, prev_offset, &prev_rect))
+		cairo_region_union_rectangle (damage_region, &prev_rect);
 
 	rect.x += view->scroll_x;
 	rect.y += view->scroll_y;
@@ -5368,13 +5405,13 @@ ev_view_move_cursor (EvView         *view,
 
 	g_signal_emit (view, signals[SIGNAL_CURSOR_MOVED], 0, view->cursor_page, view->cursor_offset);
 
+	gdk_window_invalidate_region (gtk_widget_get_window (GTK_WIDGET (view)),
+				      damage_region, TRUE);
+	cairo_region_destroy (damage_region);
+
 	/* Select text */
 	if (extend_selection && EV_IS_SELECTION (view->document)) {
-		GdkRectangle prev_rect;
 		GdkPoint start_point, end_point;
-
-		if (!get_caret_cursor_area (view, prev_page, prev_offset, &prev_rect))
-			return TRUE;
 
 		start_point.x = prev_rect.x + view->scroll_x;
 		start_point.y = prev_rect.y + (prev_rect.height / 2) + view->scroll_y;
@@ -5385,8 +5422,6 @@ ev_view_move_cursor (EvView         *view,
 		extend_selection_from_cursor (view, &start_point, &end_point);
 	} else if (clear_selections)
 		clear_selection (view);
-
-	gtk_widget_queue_draw (GTK_WIDGET (view));
 
 	return TRUE;
 }
@@ -6225,8 +6260,12 @@ ev_view_class_init (EvViewClass *class)
         add_scroll_binding_keypad (binding_set, GDK_KEY_Down,  GDK_MOD1_MASK, GTK_SCROLL_STEP_UP, GTK_ORIENTATION_VERTICAL);
 	add_scroll_binding_keypad (binding_set, GDK_KEY_Page_Up, 0, GTK_SCROLL_PAGE_BACKWARD, GTK_ORIENTATION_VERTICAL);
 	add_scroll_binding_keypad (binding_set, GDK_KEY_Page_Down, 0, GTK_SCROLL_PAGE_FORWARD, GTK_ORIENTATION_VERTICAL);
-	add_scroll_binding_keypad (binding_set, GDK_KEY_Return, 0, GTK_SCROLL_PAGE_FORWARD, GTK_ORIENTATION_VERTICAL);
-	add_scroll_binding_keypad (binding_set, GDK_KEY_Return, GDK_SHIFT_MASK, GTK_SCROLL_PAGE_BACKWARD, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Return, 0, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Return, GDK_SHIFT_MASK, "scroll", 2,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD,
+				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_VERTICAL);
         gtk_binding_entry_add_signal (binding_set, GDK_KEY_H, 0, "scroll", 2,
 				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_BACKWARD,
 				      GTK_TYPE_ORIENTATION, GTK_ORIENTATION_HORIZONTAL);
@@ -6290,7 +6329,6 @@ ev_view_init (EvView *view)
 	view->scroll_info.autoscrolling = FALSE;
 	view->selection_info.selections = NULL;
 	view->selection_info.in_drag = FALSE;
-	view->selection_mode = EV_VIEW_SELECTION_TEXT;
 	view->continuous = TRUE;
 	view->dual_even_left = TRUE;
 	view->fullscreen = FALSE;
@@ -7370,51 +7408,6 @@ ev_view_highlight_forward_search (EvView       *view,
 }
 
 /*** Selections ***/
-
-/* compute_new_selection_rect/text calculates the area currently selected by
- * view_rect.  each handles a different mode;
- */
-static GList *
-compute_new_selection_rect (EvView       *view,
-			    GdkPoint     *start,
-			    GdkPoint     *stop)
-{
-	GdkRectangle view_rect;
-	int n_pages, i;
-	GList *list = NULL;
-
-	g_assert (view->selection_mode == EV_VIEW_SELECTION_RECTANGLE);
-	
-	view_rect.x = MIN (start->x, stop->x);
-	view_rect.y = MIN (start->y, stop->y);
-	view_rect.width = MAX (start->x, stop->x) - view_rect.x;
-	view_rect.width = MAX (start->y, stop->y) - view_rect.y;
-
-	n_pages = ev_document_get_n_pages (view->document);
-
-	for (i = 0; i < n_pages; i++) {
-		GdkRectangle page_area;
-		GtkBorder border;
-		
-		if (ev_view_get_page_extents (view, i, &page_area, &border)) {
-			GdkRectangle overlap;
-
-			if (gdk_rectangle_intersect (&page_area, &view_rect, &overlap)) {
-				EvViewSelection *selection;
-
-				selection = g_slice_new0 (EvViewSelection);
-				selection->page = i;
-				_ev_view_transform_view_rect_to_doc_rect (view, &overlap, &page_area,
-									  &(selection->rect));
-
-				list = g_list_append (list, selection);
-			}
-		}
-	}
-
-	return list;
-}
-
 static gboolean
 gdk_rectangle_point_in (GdkRectangle *rectangle,
 			GdkPoint     *point)
@@ -7425,58 +7418,92 @@ gdk_rectangle_point_in (GdkRectangle *rectangle,
 		point->y < rectangle->y + rectangle->height;
 }
 
-static GList *
-compute_new_selection_text (EvView          *view,
-			    EvSelectionStyle style,
-			    GdkPoint        *start,
-			    GdkPoint        *stop)
+static inline gboolean
+gdk_point_equal (GdkPoint *a,
+		 GdkPoint *b)
 {
-	int n_pages, i, first, last;
-	GList *list = NULL;
-	EvViewSelection *selection;
-	gdouble width, height;
-	int start_page, end_page;
+	return a->x == b->x && a->y == b->y;
+}
 
-	g_assert (view->selection_mode == EV_VIEW_SELECTION_TEXT);
+static gboolean
+get_selection_page_range (EvView          *view,
+			  EvSelectionStyle style,
+			  GdkPoint        *start,
+			  GdkPoint        *stop,
+			  gint            *first_page,
+			  gint            *last_page)
+{
+	gint start_page, end_page;
+	gint first, last;
+	gint i, n_pages;
 
 	n_pages = ev_document_get_n_pages (view->document);
 
-	/* First figure out the range of pages the selection
-	 * affects. */
-	first = n_pages;
-	last = 0;
-	if (view->continuous) {
+	if (gdk_point_equal (start, stop)) {
+		start_page = view->start_page;
+		end_page = view->end_page;
+	} else if (view->continuous) {
 		start_page = 0;
-		end_page = n_pages;
+		end_page = n_pages - 1;
 	} else if (is_dual_page (view, NULL)) {
 		start_page = view->start_page;
-		end_page = view->end_page + 1;
+		end_page = view->end_page;
 	} else {
 		start_page = view->current_page;
-		end_page = view->current_page + 1;
+		end_page = view->current_page;
 	}
 
-	for (i = start_page; i < end_page; i++) {
+	first = -1;
+	last = -1;
+	for (i = start_page; i <= end_page; i++) {
 		GdkRectangle page_area;
-		GtkBorder border;
-		
+		GtkBorder    border;
+
 		ev_view_get_page_extents (view, i, &page_area, &border);
-		if (gdk_rectangle_point_in (&page_area, start) || 
+		page_area.x -= border.left;
+		page_area.y -= border.top;
+		page_area.width += border.left + border.right;
+		page_area.height += border.top + border.bottom;
+		if (gdk_rectangle_point_in (&page_area, start) ||
 		    gdk_rectangle_point_in (&page_area, stop)) {
-			if (first == n_pages)
+			if (first == -1)
 				first = i;
 			last = i;
 		}
-
 	}
 
+	if (first != -1 && last != -1) {
+		*first_page = first;
+		*last_page = last;
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static GList *
+compute_new_selection (EvView          *view,
+		       EvSelectionStyle style,
+		       GdkPoint        *start,
+		       GdkPoint        *stop)
+{
+	int i, first, last;
+	GList *list = NULL;
+
+	/* First figure out the range of pages the selection affects. */
+	if (!get_selection_page_range (view, style, start, stop, &first, &last))
+		return list;
+
 	/* Now create a list of EvViewSelection's for the affected
-	 * pages.  This could be an empty list, a list of just one
+	 * pages. This could be an empty list, a list of just one
 	 * page or a number of pages.*/
-	for (i = first; i < last + 1; i++) {
-		GdkRectangle page_area;
-		GtkBorder border;
-		GdkPoint *point;
+	for (i = first; i <= last; i++) {
+		EvViewSelection *selection;
+		GdkRectangle     page_area;
+		GtkBorder        border;
+		GdkPoint        *point;
+		gdouble          width, height;
 
 		get_doc_page_size (view, i, &width, &height);
 
@@ -7488,6 +7515,10 @@ compute_new_selection_text (EvView          *view,
 		selection->rect.y2 = height;
 
 		ev_view_get_page_extents (view, i, &page_area, &border);
+		page_area.x -= border.left;
+		page_area.y -= border.top;
+		page_area.width += border.left + border.right;
+		page_area.height += border.top + border.bottom;
 
 		if (gdk_rectangle_point_in (&page_area, start))
 			point = start;
@@ -7660,13 +7691,7 @@ compute_selections (EvView          *view,
 		    GdkPoint        *start,
 		    GdkPoint        *stop)
 {
-	GList *list;
-
-	if (view->selection_mode == EV_VIEW_SELECTION_RECTANGLE)
-		list = compute_new_selection_rect (view, start, stop);
-	else
-		list = compute_new_selection_text (view, style, start, stop);
-	merge_selection_region (view, list);
+	merge_selection_region (view, compute_new_selection (view, style, start, stop));
 }
 
 /* Free's the selection.  It's up to the caller to queue redraws if needed.
