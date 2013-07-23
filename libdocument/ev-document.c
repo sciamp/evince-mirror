@@ -203,6 +203,7 @@ ev_document_setup_cache (EvDocument *document)
         /* Cache some info about the document to avoid
          * going to the backends since it requires locks
          */
+	priv->info = _ev_document_get_info (document);
         priv->n_pages = _ev_document_get_n_pages (document);
 
         for (i = 0; i < priv->n_pages; i++) {
@@ -267,6 +268,28 @@ ev_document_setup_cache (EvDocument *document)
         }
 }
 
+static void
+ev_document_setup_cache_for_uri (EvDocument  *document,
+				 const gchar *uri)
+{
+	EvDocumentPrivate *priv;
+
+	priv = document->priv;
+
+	priv->uri = g_strdup (uri);
+
+	if (_ev_document_support_synctex (document)) {
+		gchar *filename;
+
+		filename = g_filename_from_uri (uri, NULL, NULL);
+		if (filename != NULL) {
+			priv->synctex_scanner =
+				synctex_scanner_new_with_output_file (filename, NULL, 1);
+			g_free (filename);
+		}
+	}
+}
+
 /**
  * ev_document_load:
  * @document: a #EvDocument
@@ -308,22 +331,8 @@ ev_document_load (EvDocument  *document,
 					     "Internal error in backend");
 		}
 	} else {
-                EvDocumentPrivate *priv = document->priv;
-
                 ev_document_setup_cache (document);
-
-                priv->uri = g_strdup (uri);
-                priv->info = _ev_document_get_info (document);
-                if (_ev_document_support_synctex (document)) {
-                        gchar *filename;
-
-                        filename = g_filename_from_uri (uri, NULL, NULL);
-                        if (filename != NULL) {
-                                priv->synctex_scanner =
-                                        synctex_scanner_new_with_output_file (filename, NULL, 1);
-                                g_free (filename);
-                        }
-                }
+		ev_document_setup_cache_for_uri (document, uri);
         }
 
 	return retval;
@@ -396,7 +405,6 @@ ev_document_load_gfile (EvDocument         *document,
                         GError            **error)
 {
         EvDocumentClass   *klass;
-	EvDocumentPrivate *priv;
 
         g_return_val_if_fail (EV_IS_DOCUMENT (document), FALSE);
         g_return_val_if_fail (G_IS_FILE (file), FALSE);
@@ -414,10 +422,7 @@ ev_document_load_gfile (EvDocument         *document,
                 return FALSE;
 
         ev_document_setup_cache (document);
-
-	priv = document->priv;
-	priv->uri = g_file_get_uri (file);
-	priv->info = _ev_document_get_info (document);
+	ev_document_setup_cache_for_uri (document, g_file_get_uri (file));
 
         return TRUE;
 }
