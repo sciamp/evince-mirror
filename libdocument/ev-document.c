@@ -277,7 +277,12 @@ ev_document_setup_cache_for_uri (EvDocument  *document,
 	priv = document->priv;
 
 	priv->uri = g_strdup (uri);
+}
 
+static void
+ev_document_initialize_synctex (EvDocument  *document,
+				const gchar *uri)
+{
 	if (_ev_document_support_synctex (document)) {
 		gchar *filename;
 
@@ -333,6 +338,7 @@ ev_document_load (EvDocument  *document,
 	} else {
                 ev_document_setup_cache (document);
 		ev_document_setup_cache_for_uri (document, uri);
+		ev_document_initialize_synctex (document, uri);
         }
 
 	return retval;
@@ -404,7 +410,8 @@ ev_document_load_gfile (EvDocument         *document,
                         GCancellable       *cancellable,
                         GError            **error)
 {
-        EvDocumentClass   *klass;
+        EvDocumentClass *klass;
+	gchar           *uri;
 
         g_return_val_if_fail (EV_IS_DOCUMENT (document), FALSE);
         g_return_val_if_fail (G_IS_FILE (file), FALSE);
@@ -422,7 +429,10 @@ ev_document_load_gfile (EvDocument         *document,
                 return FALSE;
 
         ev_document_setup_cache (document);
-	ev_document_setup_cache_for_uri (document, g_file_get_uri (file));
+	uri = g_file_get_uri (file);
+	ev_document_setup_cache_for_uri (document, uri);
+	ev_document_initialize_synctex (document, uri);
+	g_free (uri);
 
         return TRUE;
 }
