@@ -525,7 +525,9 @@ ev_view_presenter_constructor (GType                  type,
         /* this string is ONLY for testing purpose */
         presenter->notes = ev_view_presenter_note_new ("/home/sciamp/test.notes"); 
 
-       return obj;
+        presenter->scale = 0;
+
+        return obj;
 }
 
 static void
@@ -704,15 +706,12 @@ ev_view_presenter_get_scale_for_page (EvViewPresenter *self,
 	return self->scale;
 }
 
-
 static void
-ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
-                                            GdkRectangle    *page_area)
+ev_view_presenter_get_view_size (EvViewPresenter *self,
+                                 gint            *width,
+                                 gint            *height)
 {
-        GtkWidget    *widget = GTK_WIDGET (self);
-        GtkAllocation allocation;
         gdouble       doc_width, doc_height;
-        gint          view_width, view_height;
         gdouble       scale;
         EvDocument   *document =
                 ev_view_presentation_get_document (self->presentation);
@@ -727,16 +726,27 @@ ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
         scale = ev_view_presenter_get_scale_for_page (self,
                                                       current_page);
 
-
 	if (rotation == 90 || rotation == 270) {
-		view_width = (gint)((doc_height * scale) + 0.5);
-		view_height = (gint)((doc_width * scale) + 0.5);
+                if (width != NULL)
+                        *width = (gint)((doc_height * scale) + 0.5);
+                if (height != NULL)
+                        *height = (gint)((doc_width * scale) + 0.5);
 	} else {
-		view_width = (gint)((doc_width * scale) + 0.5);
-		view_height = (gint)((doc_height * scale) + 0.5);
+                if (width != NULL)
+                        *width = (gint)((doc_width * scale) + 0.5);
+                if (height != NULL)
+                        *height = (gint)((doc_height * scale) + 0.5);
 	}
+}
 
-	gtk_widget_get_allocation (widget, &allocation);
+static void
+ev_view_presenter_get_page_area_curr_slide (EvViewPresenter *self,
+                                            GdkRectangle    *page_area)
+{
+        gint          view_width, view_height;
+
+        ev_view_presenter_get_view_size (self,
+                                         &view_width, &view_height);
 
 	page_area->x = 0;
 	page_area->y = 0;
@@ -748,37 +758,13 @@ static void
 ev_view_presenter_get_page_area_next_slide (EvViewPresenter *self,
                                             GdkRectangle    *page_area)
 {
-        GtkWidget    *widget = GTK_WIDGET (self);
-        GtkAllocation allocation;
-        gdouble       doc_width, doc_height;
         gint          view_width, view_height;
-        gdouble       scale;
-        EvDocument   *document =
-                ev_view_presentation_get_document (self->presentation);
-        gint          current_page =
-                ev_view_presentation_get_current_page (self->presentation);
-        guint       rotation =
-                ev_view_presentation_get_rotation (self->presentation);
 
-        ev_document_get_page_size (document,
-                                   current_page + 1,
-                                   &doc_width, &doc_height);
-        scale = ev_view_presenter_get_scale_for_page (self,
-                                                      current_page + 1);
-
-
-	if (rotation == 90 || rotation == 270) {
-		view_width = (gint)((doc_height * scale) + 0.5);
-		view_height = (gint)((doc_width * scale) + 0.5);
-	} else {
-		view_width = (gint)((doc_width * scale) + 0.5);
-		view_height = (gint)((doc_height * scale) + 0.5);
-	}
-
-	gtk_widget_get_allocation (widget, &allocation);
+        ev_view_presenter_get_view_size (self,
+                                         &view_width, &view_height);
 
 	page_area->x = 0;
-	page_area->y = allocation.height / 2;
+	page_area->y = self->monitor_height / 2;
 	page_area->width = view_width;
 	page_area->height = view_height;
 }
@@ -839,6 +825,8 @@ ev_view_presenter_draw (GtkWidget *widget,
                         cairo_fill (cr);
                         cairo_restore (cr);
                 }
+
+                gtk_widget_set_size_request (GTK_WIDGET (presenter), page_area.width, -1);
         }
 
         if (next_slide_s) {
@@ -1033,10 +1021,10 @@ ev_view_presenter_new (EvViewPresentation *presentation)
                                               "presentation", presentation,
                                               NULL));
 
-        gtk_box_pack_start (GTK_BOX (hbox), presenter, TRUE, TRUE, 0);
-        gtk_box_pack_end (GTK_BOX (hbox), 
-                          EV_VIEW_PRESENTER (presenter)->notes,
-                          FALSE, FALSE, 0);
+        gtk_box_pack_start (GTK_BOX (hbox), presenter, FALSE, TRUE, 0);
+        gtk_box_pack_start (GTK_BOX (hbox), 
+                            EV_VIEW_PRESENTER (presenter)->notes,
+                            TRUE, TRUE, 0);
 
         return hbox;
 }
