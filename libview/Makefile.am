@@ -24,7 +24,8 @@ INST_H_SRC_FILES = 			\
 	ev-view.h			\
 	ev-view-presentation.h		\
 	ev-view-presenter.h		\
-	ev-view-presenter-note.h
+	ev-view-presenter-note.h	\
+	ev-view-presenter-widget.h
 
 INST_H_BUILT_FILES = \
 	ev-view-type-builtins.h
@@ -51,6 +52,7 @@ libevview3_la_SOURCES =			\
 	ev-view-presentation.c		\
 	ev-view-presenter.c		\
 	ev-view-presenter-note.c	\
+	ev-view-presenter-widget.c	\
 	$(NOINST_H_SRC_FILES)		\
 	$(INST_H_SRC_FILES)
 
