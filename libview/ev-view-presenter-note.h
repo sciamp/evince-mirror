@@ -27,6 +27,7 @@
 #define __EV_VIEW_PRESENTER_NOTE__
 
 #include <gtk/gtk.h>
+#include "ev-view-presentation.h"
 
 G_BEGIN_DECLS
 
@@ -38,7 +39,7 @@ typedef struct _EvViewPresenterNote      EvViewPresenterNote;
 typedef struct _EvViewPresenterNoteClass EvViewPresenterNoteClass;
 
 GType      ev_view_presenter_note_get_type (void) G_GNUC_CONST;
-GtkWidget *ev_view_presenter_note_new      (const gchar* uri);
+GtkWidget *ev_view_presenter_note_new      (EvViewPresentation  *presentation);
 void       ev_view_presenter_note_for_page (EvViewPresenterNote *self,
                                             gint                 page);
 

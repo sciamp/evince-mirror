@@ -50,6 +50,7 @@ void            ev_view_presentation_previous_page    (EvViewPresentation *pview
 void            ev_view_presentation_set_rotation     (EvViewPresentation *pview,
                                                        gint                rotation);
 guint           ev_view_presentation_get_rotation     (EvViewPresentation *pview);
+const gchar    *ev_view_presentation_get_document_uri (EvViewPresentation *pview);
 
 G_END_DECLS
 
