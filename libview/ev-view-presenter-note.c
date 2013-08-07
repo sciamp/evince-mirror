@@ -131,7 +131,6 @@ ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
 
         gobject_class->set_property = ev_view_presenter_note_set_property;
-        /* gobject_class->constructor = ev_view_presenter_note_constructor; */
         gobject_class->constructed = ev_view_presenter_note_constructed;
 
         obj_properties[PROP_PRESENTATION] =
