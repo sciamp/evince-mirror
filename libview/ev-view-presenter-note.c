@@ -25,16 +25,18 @@
 
 enum {
         PROP_0,
-        PROP_NOTES_FILE,
+        PROP_PRESENTATION,
         N_PROP
 };
 
 struct _EvViewPresenterNote {
-        GtkTextView parent_instance;
 
-        GFile      *file;
-        JsonParser *parser;
-        JsonReader *reader;
+        GtkTextView         parent_instance;
+
+        EvViewPresentation *presentation;
+
+        JsonParser         *parser;
+        JsonReader         *reader;
 };
 
 struct _EvViewPresenterNoteClass {
@@ -76,8 +78,8 @@ ev_view_presenter_note_set_property (GObject      *obj,
         EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (obj);
 
         switch (prop_id) {
-        case PROP_NOTES_FILE:
-                self->file = g_value_get_object (value);
+        case PROP_PRESENTATION:
+                self->presentation = g_value_get_object (value);
                 break;
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -89,31 +91,34 @@ ev_view_presenter_note_init (EvViewPresenterNote *self)
 {
 }
 
-static GObject *
-ev_view_presenter_note_constructor (GType                  gtype,
-                                    guint                  n_prop,
-                                    GObjectConstructParam *prop)
+static void
+ev_view_presenter_note_constructed (GObject *obj)
 {
-        GObject             *obj;
-        EvViewPresenterNote *self;
+        EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (obj);
+        gchar               *uri;
         GError              *err = NULL;
 
-        obj = G_OBJECT_CLASS (ev_view_presenter_note_parent_class)->constructor (gtype,
-                                                                                 n_prop,
-                                                                                 prop);
 
-        /* g_print ("object build with path %s \n", */
-        /*          g_file_get_uri (EV_VIEW_PRESENTER_NOTE (obj)->file)); */
-        self = EV_VIEW_PRESENTER_NOTE (obj);
+        uri = g_strjoin (NULL,
+                         ev_view_presentation_get_document_uri (self->presentation),
+                         ".notes",
+                         NULL);
+
         self->parser = json_parser_new ();
-        if (json_parser_load_from_file (self->parser,
-                                        g_file_get_uri (self->file),
-                                        &err))
+        if (json_parser_load_from_file (self->parser, uri, &err))
                 self->reader = json_reader_new (json_parser_get_root (self->parser));
-        else
-                fprintf (stderr, "Unable to read file: %s\n", err->message);
+        else {
+                GtkTextBuffer *buff = gtk_text_buffer_new (NULL);
+                gtk_text_buffer_set_text (buff,
+                                          g_strjoin (NULL,
+                                                     "To start using notes with this presentation just create the note file\n",
+                                                     uri,
+                                                     NULL),
+                                          -1);
+                gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), buff);
+        }
 
-        return obj;
+        G_OBJECT_CLASS (ev_view_presenter_note_parent_class)->constructed (obj);
 }
 
 static void
@@ -123,13 +128,14 @@ ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
 
         gobject_class->set_property = ev_view_presenter_note_set_property;
-        gobject_class->constructor = ev_view_presenter_note_constructor;
+        /* gobject_class->constructor = ev_view_presenter_note_constructor; */
+        gobject_class->constructed = ev_view_presenter_note_constructed;
 
-        obj_properties[PROP_NOTES_FILE] =
-                g_param_spec_object ("file",
-                                     "File",
-                                     "JSON file containing presenter notes",
-                                     G_TYPE_FILE,
+        obj_properties[PROP_PRESENTATION] =
+                g_param_spec_object ("presentation",
+                                     "Presentation",
+                                     "The running presentation",
+                                     EV_TYPE_VIEW_PRESENTATION,
                                      G_PARAM_WRITABLE |
                                      G_PARAM_CONSTRUCT_ONLY |
                                      G_PARAM_STATIC_STRINGS);
@@ -148,12 +154,8 @@ ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
 }
 
 GtkWidget *
-ev_view_presenter_note_new (const gchar *uri)
+ev_view_presenter_note_new (EvViewPresentation *presentation)
 {
-        GFile *file = g_file_new_for_uri (uri);
-
-        /* g_print ("ev_view_presenter_note_new: got %s \n", g_file_get_uri (file)); */
-
         return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER_NOTE,
-                                         "file", file, NULL));
+                                         "presentation", presentation, NULL));
 }
