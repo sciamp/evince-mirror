@@ -105,9 +105,11 @@ ev_view_presenter_constructed (GObject *obj)
         gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
                             FALSE, TRUE, 0);
 
-        self->notes = ev_view_presenter_note_new ("/path/to/notes");
+        self->notes = ev_view_presenter_note_new (self->presentation);
         gtk_box_pack_start (GTK_BOX (self), self->notes,
                             TRUE, TRUE, 0);
+
+        G_OBJECT_CLASS (ev_view_presenter_parent_class)->constructed (obj);
 }
 
 static void
