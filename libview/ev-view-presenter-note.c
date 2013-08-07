@@ -98,6 +98,9 @@ ev_view_presenter_note_constructed (GObject *obj)
         gchar               *uri;
         GError              *err = NULL;
 
+        gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 20);
+        gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 20);
+        gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (self), GTK_WRAP_WORD);
 
         uri = g_strjoin (NULL,
                          ev_view_presentation_get_document_uri (self->presentation),
@@ -111,7 +114,7 @@ ev_view_presenter_note_constructed (GObject *obj)
                 GtkTextBuffer *buff = gtk_text_buffer_new (NULL);
                 gtk_text_buffer_set_text (buff,
                                           g_strjoin (NULL,
-                                                     "To start using notes with this presentation just create the note file\n",
+                                                     "To start using notes with this presentation just create the note file ",
                                                      uri,
                                                      NULL),
                                           -1);
