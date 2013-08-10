@@ -97,15 +97,19 @@ ev_view_presenter_note_constructed (GObject *obj)
         EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (obj);
         gchar               *uri;
         GError              *err = NULL;
+        GFile               *file;
 
         gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 20);
         gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 20);
         gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (self), GTK_WRAP_WORD);
 
-        uri = g_strjoin (NULL,
-                         ev_view_presentation_get_document_uri (self->presentation),
-                         ".notes",
-                         NULL);
+        file = g_file_new_for_uri (
+                g_strjoin (NULL,
+                           ev_view_presentation_get_document_uri (self->presentation),
+                           ".notes",
+                           NULL));
+        uri = g_file_get_path (file);
+        g_object_unref (file);
 
         self->parser = json_parser_new ();
         if (json_parser_load_from_file (self->parser, uri, &err))
