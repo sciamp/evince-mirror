@@ -40,8 +40,6 @@ typedef struct _EvViewPresenterNoteClass EvViewPresenterNoteClass;
 
 GType      ev_view_presenter_note_get_type (void) G_GNUC_CONST;
 GtkWidget *ev_view_presenter_note_new      (EvViewPresentation  *presentation);
-void       ev_view_presenter_note_for_page (EvViewPresenterNote *self,
-                                            gint                 page);
 
 G_END_DECLS
 
