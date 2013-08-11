@@ -49,12 +49,12 @@ G_DEFINE_TYPE (EvViewPresenterNote, ev_view_presenter_note, GTK_TYPE_TEXT_VIEW)
 
 static void
 update_note_page_cb (GObject    *obj,
-                        GParamSpec *pspec,
-                        gpointer    user_data)
+                     GParamSpec *pspec,
+                     gpointer    user_data)
 {
         GString             *page_str;
         GtkTextBuffer       *buffer;
-        EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (obj);
+        EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (user_data);
         gint                 page;
 
         page = ev_view_presentation_get_current_page (self->presentation);
@@ -122,8 +122,7 @@ ev_view_presenter_note_constructed (GObject *obj)
                 g_signal_connect (self->presentation,
                                   "notify::current-page",
                                   G_CALLBACK (update_note_page_cb),
-                                  NULL);
-
+                                  self);
         } else {
                 GtkTextBuffer *buff = gtk_text_buffer_new (NULL);
                 gtk_text_buffer_set_text (buff,
