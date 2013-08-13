@@ -48,19 +48,14 @@ static GParamSpec *obj_properties[N_PROP] = { NULL, };
 G_DEFINE_TYPE (EvViewPresenterNote, ev_view_presenter_note, GTK_TYPE_TEXT_VIEW)
 
 static void
-update_note_page_cb (GObject    *obj,
-                     GParamSpec *pspec,
-                     gpointer    user_data)
+ev_view_presenter_note_set_page (EvViewPresenterNote *self,
+                                 gint                 page)
 {
         GString             *page_str;
         GtkTextBuffer       *buffer;
-        EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (user_data);
-        gint                 page;
 
-        page = ev_view_presentation_get_current_page (self->presentation);
         page_str = g_string_new ("");
         g_string_printf (page_str, "%d", page);
-        g_print ("%d\n", page);
 
         json_reader_read_member (self->reader, page_str->str );
         const gchar *note = json_reader_get_string_value (self->reader);
@@ -72,6 +67,19 @@ update_note_page_cb (GObject    *obj,
         else
                 gtk_text_buffer_set_text (buffer, note, -1);
         gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), buffer);
+}
+
+static void
+update_note_page_cb (GObject    *obj,
+                     GParamSpec *pspec,
+                     gpointer    user_data)
+{
+        EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (user_data);
+        gint                 page;
+
+        page = ev_view_presentation_get_current_page (self->presentation);
+
+        ev_view_presenter_note_set_page (self, page);
 }
 
 static void
@@ -123,6 +131,9 @@ ev_view_presenter_note_constructed (GObject *obj)
                                   "notify::current-page",
                                   G_CALLBACK (update_note_page_cb),
                                   self);
+
+                ev_view_presenter_note_set_page (self,
+                                                 ev_view_presentation_get_current_page (self->presentation));
         } else {
                 GtkTextBuffer *buff = gtk_text_buffer_new (NULL);
                 gtk_text_buffer_set_text (buff,
