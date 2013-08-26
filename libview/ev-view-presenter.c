@@ -25,6 +25,7 @@
 #include "ev-view-presenter.h"
 #include "ev-view-presenter-widget.h"
 #include "ev-view-presenter-note.h"
+#include "ev-view-presenter-timer.h"
 
 enum {
         PROP_0,
@@ -39,6 +40,7 @@ struct _EvViewPresenter
         EvViewPresentation *presentation;
         GtkWidget          *presenter_widget;
         GtkWidget          *notes;
+        GtkWidget          *timer;
 };
 
 struct _EvViewPresenterClass
@@ -97,6 +99,7 @@ static void
 ev_view_presenter_constructed (GObject *obj)
 {
         EvViewPresenter *self = EV_VIEW_PRESENTER (obj);
+        GtkWidget       *left_box;
 
         gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                         GTK_ORIENTATION_HORIZONTAL);
@@ -105,8 +108,15 @@ ev_view_presenter_constructed (GObject *obj)
         gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
                             FALSE, TRUE, 0);
 
+        left_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+        gtk_box_pack_start (GTK_BOX (self), left_box,
+                            TRUE, TRUE, 0);
+
+        self->timer = ev_view_presenter_timer_new ();
         self->notes = ev_view_presenter_note_new (self->presentation);
-        gtk_box_pack_start (GTK_BOX (self), self->notes,
+        gtk_box_pack_start (GTK_BOX (left_box), self->timer,
+                            TRUE, TRUE, 0);
+        gtk_box_pack_start (GTK_BOX (left_box), self->notes,
                             TRUE, TRUE, 0);
 
         G_OBJECT_CLASS (ev_view_presenter_parent_class)->constructed (obj);
