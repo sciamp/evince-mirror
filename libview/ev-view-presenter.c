@@ -115,7 +115,7 @@ ev_view_presenter_constructed (GObject *obj)
         self->timer = ev_view_presenter_timer_new ();
         self->notes = ev_view_presenter_note_new (self->presentation);
         gtk_box_pack_start (GTK_BOX (left_box), self->timer,
-                            TRUE, TRUE, 0);
+                            FALSE, TRUE, 0);
         gtk_box_pack_start (GTK_BOX (left_box), self->notes,
                             TRUE, TRUE, 0);
 
