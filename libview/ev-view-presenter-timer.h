@@ -26,6 +26,8 @@
 #define __EV_VIEW_PRESENTER_TIMER__
 
 #include <gtk/gtk.h>
+#include <glib.h>
+#include <glib/gi18n.h>
 
 G_BEGIN_DECLS
 
