@@ -10,7 +10,8 @@ NOINST_H_SRC_FILES =			\
 	ev-view-accessible.h		\
 	ev-view-cursor.h		\
 	ev-view-private.h		\
-	ev-view-presentation-private.h
+	ev-view-presentation-private.h	\
+	ev-view-presenter-widget-private.h
 
 NOINST_H_BUILT_FILES = \
 	ev-view-marshal.h

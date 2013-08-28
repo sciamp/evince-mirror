@@ -30,6 +30,7 @@
 
 /* just leaving the old file name, I know I'm lazy :) */
 #include "ev-view-presentation-private.h"
+#include "ev-view-presenter-widget-private.h"
 
 enum {
         PROP_0,
@@ -459,22 +460,6 @@ ev_view_presenter_widget_next_page (EvViewPresenterWidget *self)
 }
 
 static void
-ev_view_presenter_widget_change_page (EvViewPresenterWidget *self,
-                                      GtkScrollType          scroll)
-{
-        switch (scroll) {
-        case GTK_SCROLL_PAGE_FORWARD:
-                ev_view_presenter_widget_next_page (self);
-                break;
-        case GTK_SCROLL_PAGE_BACKWARD:
-                ev_view_presenter_widget_previous_page (self);
-                break;
-        default:
-                g_assert_not_reached ();
-        }
-}
-
-static void
 ev_view_presenter_widget_dispose (GObject *obj)
 {
         EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
@@ -874,6 +859,22 @@ ev_view_presenter_widget_key_press_event (GtkWidget   *widget,
                                             event);
 }
 
+static void
+ev_view_presenter_widget_change_page (EvViewPresenterWidget *self,
+                                      GtkScrollType          scroll)
+{
+  switch (scroll) {
+  case GTK_SCROLL_PAGE_FORWARD:
+    ev_view_presenter_widget_next_page (self);
+    break;
+  case GTK_SCROLL_PAGE_BACKWARD:
+    ev_view_presenter_widget_previous_page (self);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
 static gboolean
 ev_view_presenter_widget_scroll_event (GtkWidget      *widget,
                                        GdkEventScroll *scroll)
@@ -904,30 +905,11 @@ ev_view_presenter_widget_scroll_event (GtkWidget      *widget,
 }
 
 static void
-add_change_page_binding_keypad (GtkBindingSet  *binding_set,
-                                guint           keyval,
-                                GdkModifierType modifiers,
-                                GtkScrollType   scroll)
-{
-	guint keypad_keyval = keyval - GDK_KEY_Left + GDK_KEY_KP_Left;
-
-	gtk_binding_entry_add_signal (binding_set, keyval, modifiers,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, scroll);
-	gtk_binding_entry_add_signal (binding_set, keypad_keyval, modifiers,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, scroll);
-}
-
-static void
 ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
 {
         GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
-        GtkBindingSet  *binding_set;
         GtkCssProvider *provider;
-
-        klass->change_page = ev_view_presenter_widget_change_page;
 
         gobject_class->dispose = ev_view_presenter_widget_dispose;
         gobject_class->constructor = ev_view_presenter_widget_constructor;
@@ -938,7 +920,7 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
         widget_class->get_preferred_height = ev_view_presenter_widget_get_preferred_height; 
         widget_class->realize = ev_view_presenter_widget_realize;
         widget_class->draw = ev_view_presenter_widget_draw;
-        widget_class->key_press_event = ev_view_presenter_widget_key_press_event;
+        /* widget_class->key_press_event = ev_view_presenter_widget_key_press_event; */
         widget_class->scroll_event = ev_view_presenter_widget_scroll_event;
 
         g_object_class_install_property (gobject_class,
@@ -968,36 +950,6 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
 			      g_cclosure_marshal_VOID__VOID,
 			      G_TYPE_NONE, 0,
 			      G_TYPE_NONE);
-
-	binding_set = gtk_binding_set_by_class (klass);
-	add_change_page_binding_keypad (binding_set, GDK_KEY_Left,  0, GTK_SCROLL_PAGE_BACKWARD);
-	add_change_page_binding_keypad (binding_set, GDK_KEY_Right, 0, GTK_SCROLL_PAGE_FORWARD);
-	add_change_page_binding_keypad (binding_set, GDK_KEY_Up,    0, GTK_SCROLL_PAGE_BACKWARD);
-	add_change_page_binding_keypad (binding_set, GDK_KEY_Down,  0, GTK_SCROLL_PAGE_FORWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_space, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_BackSpace, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Page_Down, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Page_Up, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_J, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_H, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_L, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
-	gtk_binding_entry_add_signal (binding_set, GDK_KEY_K, 0,
-				      "change_page", 1,
-				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
 
         provider = gtk_css_provider_new ();
         gtk_css_provider_load_from_data (provider,

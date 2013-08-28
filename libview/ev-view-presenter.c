@@ -27,10 +27,17 @@
 #include "ev-view-presenter-note.h"
 #include "ev-view-presenter-timer.h"
 
+#include "ev-view-presenter-widget-private.h"
+
 enum {
         PROP_0,
         PROP_PRESENTATION,
         PROP_NOTES
+};
+
+enum {
+  CHANGE_PAGE,
+  N_SIGNALS
 };
 
 struct _EvViewPresenter
@@ -45,8 +52,13 @@ struct _EvViewPresenter
 
 struct _EvViewPresenterClass
 {
-        GtkBoxClass            base_class;
+  GtkBoxClass           base_class;
+
+  void (* change_page) (EvViewPresenter *self,
+                        GtkScrollType scroll);
 };
+
+static guint signals[N_SIGNALS] = { 0 };
 
 G_DEFINE_TYPE (EvViewPresenter, ev_view_presenter, GTK_TYPE_BOX)
 
@@ -123,9 +135,48 @@ ev_view_presenter_constructed (GObject *obj)
 }
 
 static void
+add_change_page_binding_keypad (GtkBindingSet  *binding_set,
+                                guint           keyval,
+                                GdkModifierType modifiers,
+                                GtkScrollType   scroll)
+{
+	guint keypad_keyval = keyval - GDK_KEY_Left + GDK_KEY_KP_Left;
+
+	gtk_binding_entry_add_signal (binding_set, keyval, modifiers,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, scroll);
+	gtk_binding_entry_add_signal (binding_set, keypad_keyval, modifiers,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, scroll);
+}
+
+static void
+ev_view_presenter_change_page (EvViewPresenter *self,
+                               GtkScrollType    scroll)
+{
+  EvViewPresenterWidget *presenter_widget;
+
+  presenter_widget = EV_VIEW_PRESENTER_WIDGET (self->presenter_widget);
+
+  switch (scroll) {
+  case GTK_SCROLL_PAGE_FORWARD:
+    ev_view_presenter_widget_next_page (presenter_widget);
+    break;
+  case GTK_SCROLL_PAGE_BACKWARD:
+    ev_view_presenter_widget_previous_page (presenter_widget);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
 ev_view_presenter_class_init (EvViewPresenterClass *klass)
 {
-        GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
+        GObjectClass  *gobject_class = G_OBJECT_CLASS (klass);
+        GtkBindingSet *binding_set;
+
+        klass->change_page = ev_view_presenter_change_page;
 
         gobject_class->dispose = ev_view_presenter_dispose;
         gobject_class->set_property = ev_view_presenter_set_property;
@@ -149,6 +200,46 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
                                                               G_PARAM_WRITABLE |
                                                               G_PARAM_CONSTRUCT_ONLY |
                                                               G_PARAM_STATIC_STRINGS));
+
+        signals[CHANGE_PAGE] =
+          g_signal_new ("change_page",
+                        G_OBJECT_CLASS_TYPE (gobject_class),
+                        G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
+                        G_STRUCT_OFFSET (EvViewPresenterClass, change_page),
+                        NULL, NULL,
+                        g_cclosure_marshal_VOID__ENUM,
+                        G_TYPE_NONE, 1,
+                        GTK_TYPE_SCROLL_TYPE);
+
+	binding_set = gtk_binding_set_by_class (klass);
+	add_change_page_binding_keypad (binding_set, GDK_KEY_Left,  0, GTK_SCROLL_PAGE_BACKWARD);
+	add_change_page_binding_keypad (binding_set, GDK_KEY_Right, 0, GTK_SCROLL_PAGE_FORWARD);
+	add_change_page_binding_keypad (binding_set, GDK_KEY_Up,    0, GTK_SCROLL_PAGE_BACKWARD);
+	add_change_page_binding_keypad (binding_set, GDK_KEY_Down,  0, GTK_SCROLL_PAGE_FORWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_space, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_BackSpace, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Page_Down, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_Page_Up, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_J, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_H, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_L, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_FORWARD);
+	gtk_binding_entry_add_signal (binding_set, GDK_KEY_K, 0,
+				      "change_page", 1,
+				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
 }
 
 GtkWidget *
