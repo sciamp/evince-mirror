@@ -150,14 +150,26 @@ ev_view_presenter_note_constructed (GObject *obj)
         G_OBJECT_CLASS (ev_view_presenter_note_parent_class)->constructed (obj);
 }
 
+static gboolean
+ev_view_presenter_note_key_press_event (GtkWidget   *widget,
+                                        GdkEventKey *event)
+{
+  /* this will prevent the GtkTextView from catching */
+  /* keyboard inputs */
+  return FALSE;
+}
+
 static void
 ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
 {
         GtkCssProvider *provider;
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
+        GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
         gobject_class->set_property = ev_view_presenter_note_set_property;
         gobject_class->constructed = ev_view_presenter_note_constructed;
+
+        widget_class->key_press_event = ev_view_presenter_note_key_press_event;
 
         obj_properties[PROP_PRESENTATION] =
                 g_param_spec_object ("presentation",
