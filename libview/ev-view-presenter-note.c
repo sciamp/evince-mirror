@@ -115,6 +115,8 @@ ev_view_presenter_note_constructed (GObject *obj)
         gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 20);
         gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 20);
         gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (self), GTK_WRAP_WORD);
+        gtk_text_view_set_editable (GTK_TEXT_VIEW (self), FALSE);
+        gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (self), FALSE);
 
         file = g_file_new_for_uri (
                 g_strjoin (NULL,
