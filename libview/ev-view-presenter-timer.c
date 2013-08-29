@@ -34,7 +34,9 @@ struct _EvViewPresenterTimer {
   PangoAttribute *weight;
   PangoAttribute *size;
 
-  GtkWidget      *button;
+  GtkWidget      *buttons_box;
+  GtkWidget      *toggle_button;
+  GtkWidget      *reset_button;
   gint            state;
 };
 
@@ -81,6 +83,21 @@ update_label_cb (GtkWidget     *widget,
 }
 
 static void
+reset_timer_cb (GtkButton *button,
+                gpointer   data)
+{
+  EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (data);
+
+  g_timer_stop (self->timer);
+  g_timer_reset (self->timer);
+
+  self->state = PRESENTATION_PAUSED;
+
+  gtk_button_set_label (GTK_BUTTON (self->toggle_button),
+                        _("Start"));
+}
+
+static void
 toggle_timer_cb (GtkButton *button,
                  gpointer   data)
 {
@@ -90,17 +107,17 @@ toggle_timer_cb (GtkButton *button,
   case PRESENTATION_RUNNING:
     g_timer_stop (self->timer);
     self->state = PRESENTATION_PAUSED;
-    gtk_button_set_label (GTK_BUTTON (self->button),
+    gtk_button_set_label (GTK_BUTTON (self->toggle_button),
                           _("Start"));
     break;
   case PRESENTATION_PAUSED:
     g_timer_continue (self->timer);
     self->state = PRESENTATION_RUNNING;
-    gtk_button_set_label (GTK_BUTTON (self->button),
+    gtk_button_set_label (GTK_BUTTON (self->toggle_button),
                           _("Pause"));
     break;
   default:
-    g_error ("You reached an unknown presentation state, this should never happen!\nPlease report it as a bug.");
+    g_assert_not_reached ();
   }
 }
 
@@ -109,11 +126,47 @@ ev_view_presenter_timer_constructed (GObject *obj)
 {
   EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (obj);
   const gchar          *zero = "00:00:00";
+  GtkCssProvider       *provider;
 
-  /* timer button */
-  self->button = gtk_button_new ();
-  g_signal_connect (self->button, "clicked",
+  /* timer buttons */
+  self->toggle_button = gtk_button_new ();
+  g_signal_connect (self->toggle_button, "clicked",
                     G_CALLBACK (toggle_timer_cb), self);
+  gtk_widget_set_halign (self->toggle_button,
+                         GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (self->toggle_button,
+                         GTK_ALIGN_END);
+
+  self->reset_button = gtk_button_new_with_label (_("Reset"));
+  g_signal_connect (self->reset_button, "clicked",
+                    G_CALLBACK (reset_timer_cb), self);
+  gtk_widget_set_halign (self->reset_button,
+                         GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (self->reset_button,
+                         GTK_ALIGN_START);
+
+  self->buttons_box = gtk_box_new (GTK_ORIENTATION_VERTICAL,
+                                   0);
+  gtk_box_set_homogeneous (GTK_BOX (self->buttons_box),
+                           TRUE);
+  gtk_box_pack_start (GTK_BOX (self->buttons_box),
+                      GTK_WIDGET (self->toggle_button),
+                      FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (self->buttons_box),
+                      GTK_WIDGET (self->reset_button),
+                      FALSE, FALSE, 0);
+  gtk_widget_set_margin_left (GTK_WIDGET (self->buttons_box),
+                              10);
+
+  provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_data (provider,
+                                   "GtkButton {\n"
+                                   "  font-size: 14px; }",
+                                   -1, NULL);
+  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+                                             GTK_STYLE_PROVIDER (provider),
+                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref (provider);
 
   /* timer display */
   self->time = gtk_label_new (zero);
@@ -136,7 +189,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* presentation started in paused state */
   self->state = PRESENTATION_PAUSED;
-  gtk_button_set_label (GTK_BUTTON (self->button),
+  gtk_button_set_label (GTK_BUTTON (self->toggle_button),
                         _("Start"));
   g_timer_stop (self->timer);
   g_timer_reset (self->timer);
@@ -144,7 +197,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
   /* packing things */
   gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                   GTK_ORIENTATION_HORIZONTAL);
-  gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->button),
+  gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->buttons_box),
                       FALSE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->time),
                       TRUE, TRUE, 0);
@@ -163,7 +216,9 @@ ev_view_presenter_timer_dispose (GObject *obj)
   g_timer_destroy (self->timer);
 
   g_object_unref (self->time);
-  g_object_unref (self->button);
+  g_object_unref (self->toggle_button);
+  g_object_unref (self->reset_button);
+  g_object_unref (self->buttons_box);
 
   G_OBJECT_CLASS (ev_view_presenter_timer_parent_class)->dispose (obj);
 }
