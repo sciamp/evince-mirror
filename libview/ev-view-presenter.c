@@ -158,6 +158,8 @@ ev_view_presenter_change_page (EvViewPresenter *self,
 
   presenter_widget = EV_VIEW_PRESENTER_WIDGET (self->presenter_widget);
 
+  ev_view_presenter_timer_reset_slide_time (EV_VIEW_PRESENTER_TIMER (self->timer));
+
   switch (scroll) {
   case GTK_SCROLL_PAGE_FORWARD:
     ev_view_presenter_widget_next_page (presenter_widget);
