@@ -38,8 +38,10 @@ G_BEGIN_DECLS
 typedef struct _EvViewPresenterTimer      EvViewPresenterTimer;
 typedef struct _EvViewPresenterTimerClass EvViewPresenterTimerClass;
 
-GType      ev_view_presenter_timer_get_type (void) G_GNUC_CONST;
-GtkWidget *ev_view_presenter_timer_new      (void);
+GType      ev_view_presenter_timer_get_type         (void) G_GNUC_CONST;
+GtkWidget *ev_view_presenter_timer_new              (void);
+void       ev_view_presenter_timer_reset_slide_time (EvViewPresenterTimer *self);
+
 
 G_END_DECLS
 

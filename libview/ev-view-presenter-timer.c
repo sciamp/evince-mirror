@@ -30,9 +30,12 @@ struct _EvViewPresenterTimer {
 
   GTimer         *timer;
   GtkWidget      *time;
+  GtkWidget      *slide_time;
+  gint            last_slide_time;
   PangoAttrList  *attr_list;
   PangoAttribute *weight;
   PangoAttribute *size;
+  GtkWidget      *time_box;
 
   GtkWidget      *buttons_box;
   GtkWidget      *toggle_button;
@@ -51,30 +54,52 @@ ev_view_presenter_timer_init (EvViewPresenterTimer *self)
 {
 }
 
+void
+ev_view_presenter_timer_reset_slide_time (EvViewPresenterTimer *self)
+{
+  self->last_slide_time = (int) g_timer_elapsed (self->timer, NULL);
+}
+
 static gboolean
 update_label_cb (GtkWidget     *widget,
                  GdkFrameClock *fc,
                  gpointer       user_data)
 {
   EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (user_data);
-  gint                  elapsed;
+  gdouble               elapsed;
+  gint                  presentation;
+  gint                  slide;
   gint                  h;
   gint                  m;
   gint                  s;
   gchar                *label;
 
-  elapsed = (int) g_timer_elapsed (self->timer, NULL);
+  elapsed = g_timer_elapsed (self->timer, NULL);
+  presentation = (int) elapsed;
+  slide = presentation - self->last_slide_time;
 
-  h = (int) elapsed / 3600;
-  elapsed %= 3600;
-  m = (int) elapsed / 60;
-  elapsed %= 60;
-  s = (int) elapsed;
+  h = (int) presentation / 3600;
+  presentation %= 3600;
+  m = (int) presentation / 60;
+  presentation %= 60;
+  s = (int) presentation;
 
   label = g_strdup_printf ("%02d:%02d:%02d",
                            h, m, s);
 
   gtk_label_set_text (GTK_LABEL (self->time),
+                      label);
+
+  h = (int) slide / 3600;
+  slide %= 3600;
+  m = (int) slide / 60;
+  slide %= 60;
+  s = (int) slide;
+
+  label = g_strdup_printf ("%02d:%02d:%02d",
+                           h, m, s);
+
+  gtk_label_set_text (GTK_LABEL (self->slide_time),
                       label);
 
   g_free (label);
@@ -170,6 +195,8 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* timer display */
   self->time = gtk_label_new (zero);
+  self->slide_time = gtk_label_new (zero);
+  self->last_slide_time = 0;
 
   self->attr_list = pango_attr_list_new ();
   self->weight = pango_attr_weight_new (PANGO_WEIGHT_ULTRABOLD);
@@ -181,6 +208,18 @@ ev_view_presenter_timer_constructed (GObject *obj)
                           self->size);
   gtk_label_set_attributes (GTK_LABEL (self->time),
                             self->attr_list);
+
+  gtk_label_set_attributes (GTK_LABEL (self->slide_time),
+                            self->attr_list);
+
+  self->time_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL,
+                                0);
+  gtk_box_pack_start (GTK_BOX (self->time_box),
+                      GTK_WIDGET (self->time),
+                      TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (self->time_box),
+                      GTK_WIDGET (self->slide_time),
+                      TRUE, TRUE, 0);
 
   gtk_widget_add_tick_callback (GTK_WIDGET (self),
                                 update_label_cb,
@@ -199,7 +238,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                   GTK_ORIENTATION_HORIZONTAL);
   gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->buttons_box),
                       FALSE, TRUE, 0);
-  gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->time),
+  gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->time_box),
                       TRUE, TRUE, 0);
 }
 
@@ -216,6 +255,8 @@ ev_view_presenter_timer_dispose (GObject *obj)
   g_timer_destroy (self->timer);
 
   g_object_unref (self->time);
+  g_object_unref (self->slide_time);
+  g_object_unref (self->time_box);
   g_object_unref (self->toggle_button);
   g_object_unref (self->reset_button);
   g_object_unref (self->buttons_box);
