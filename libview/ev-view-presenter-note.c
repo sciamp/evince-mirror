@@ -111,6 +111,7 @@ ev_view_presenter_note_constructed (GObject *obj)
         gchar               *uri;
         GError              *err = NULL;
         GFile               *file;
+        GtkCssProvider      *provider;
 
         gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 20);
         gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 20);
@@ -146,6 +147,19 @@ ev_view_presenter_note_constructed (GObject *obj)
                                           -1);
                 gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), buff);
         }
+
+        /* style */
+        provider = gtk_css_provider_new ();
+        gtk_css_provider_load_from_data (provider,
+                                         "EvViewPresenterNote {\n"
+                                         "  background-color: black;\n"
+                                         "  color: white;\n"
+                                         "  font-size: 14px; }",
+                                         -1, NULL);
+        gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+                                                   GTK_STYLE_PROVIDER (provider),
+                                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        g_object_unref (provider);
 
         G_OBJECT_CLASS (ev_view_presenter_note_parent_class)->constructed (obj);
 }
