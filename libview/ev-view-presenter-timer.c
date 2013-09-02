@@ -147,16 +147,6 @@ ev_view_presenter_timer_constructed (GObject *obj)
   gtk_widget_set_size_request (self->toggle_button,
                                100, -1);
 
-  provider = gtk_css_provider_new ();
-  gtk_css_provider_load_from_data (provider,
-                                   "GtkButton {\n"
-                                   "  font-size: 14px; }",
-                                   -1, NULL);
-  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
-                                             GTK_STYLE_PROVIDER (provider),
-                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-  g_object_unref (provider);
-
   /* timer display */
   self->time = gtk_label_new (zero);
   self->slide_time = gtk_label_new (zero);
@@ -204,6 +194,22 @@ ev_view_presenter_timer_constructed (GObject *obj)
                       TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->time_box),
                       TRUE, TRUE, 0);
+
+  /* style */
+  provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_data (provider,
+                                   "GtkWindow {\n"
+                                   "  background-color: black; }\n"
+                                   "GtkBox > GtkLabel {\n"
+                                   "  background-color: black;\n"
+                                   "  color: white; }\n"
+                                   "GtkButton {\n"
+                                   "  font-size: 14px; }",
+                                   -1, NULL);
+  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+                                             GTK_STYLE_PROVIDER (provider),
+                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref (provider);
 }
 
 static void
