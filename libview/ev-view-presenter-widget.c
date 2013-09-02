@@ -507,10 +507,6 @@ ev_view_presenter_widget_constructor (GType                  type,
                           G_CALLBACK (sync_with_presentation),
                           presenter);
 
-        /* NB I'm having some troubles with ev_document_get_uri */
-        /* this string is ONLY for testing purpose */
-        /* presenter->notes = ev_view_presenter_note_new ("/home/sciamp/test.notes");  */
-
         presenter->scale = 0;
 
         return obj;
