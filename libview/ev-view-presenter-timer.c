@@ -143,7 +143,9 @@ ev_view_presenter_timer_constructed (GObject *obj)
   gtk_widget_set_halign (self->toggle_button,
                          GTK_ALIGN_CENTER);
   gtk_widget_set_valign (self->toggle_button,
-                         GTK_ALIGN_END);
+                         GTK_ALIGN_CENTER);
+  gtk_widget_set_size_request (self->toggle_button,
+                               100, -1);
 
   provider = gtk_css_provider_new ();
   gtk_css_provider_load_from_data (provider,
