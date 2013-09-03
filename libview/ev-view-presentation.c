@@ -151,7 +151,7 @@ ev_view_presentation_set_normal (EvViewPresentation *pview)
 	gtk_widget_queue_draw (widget);
 }
 
-static void
+void
 ev_view_presentation_set_black (EvViewPresentation *pview)
 {
 	GtkWidget *widget = GTK_WIDGET (pview);
