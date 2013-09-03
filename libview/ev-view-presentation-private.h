@@ -37,6 +37,7 @@ void                ev_view_presentation_update_current_page (EvViewPresentation
                                                               guint               page);
 void                ev_view_presentation_set_end             (EvViewPresentation *pview);
 void                ev_view_presentation_set_normal          (EvViewPresentation *pview);
+void                ev_view_presentation_set_black           (EvViewPresentation *pview);
 const gchar        *ev_view_presentation_get_document_uri    (EvViewPresentation *pview);
 
 

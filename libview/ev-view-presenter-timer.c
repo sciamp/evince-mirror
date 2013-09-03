@@ -21,8 +21,14 @@
 #include "ev-view-presenter-timer.h"
 
 enum {
+  PRESENTATION_IDLE,
   PRESENTATION_RUNNING,
   PRESENTATION_PAUSED
+};
+
+enum {
+  PRESENTATION_STARTED,
+  N_SIGNALS
 };
 
 struct _EvViewPresenterTimer {
@@ -44,6 +50,8 @@ struct _EvViewPresenterTimer {
 struct _EvViewPresenterTimerClass {
   GtkBoxClass parent_class;
 };
+
+static guint signals[N_SIGNALS] = { 0 };
 
 G_DEFINE_TYPE (EvViewPresenterTimer, ev_view_presenter_timer, GTK_TYPE_BOX)
 
@@ -118,6 +126,8 @@ toggle_timer_cb (GtkButton *button,
     gtk_button_set_label (GTK_BUTTON (self->toggle_button),
                           _("Start"));
     break;
+  case PRESENTATION_IDLE:
+    g_signal_emit_by_name (self, "presentation-started");
   case PRESENTATION_PAUSED:
     g_timer_continue (self->timer);
     self->state = PRESENTATION_RUNNING;
@@ -181,7 +191,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
   self->timer = g_timer_new ();
 
   /* presentation started in paused state */
-  self->state = PRESENTATION_PAUSED;
+  self->state = PRESENTATION_IDLE;
   gtk_button_set_label (GTK_BUTTON (self->toggle_button),
                         _("Start"));
   g_timer_stop (self->timer);
@@ -239,6 +249,15 @@ ev_view_presenter_timer_class_init (EvViewPresenterTimerClass *klass)
 
   gobject_class->constructed = ev_view_presenter_timer_constructed;
   gobject_class->dispose = ev_view_presenter_timer_dispose;
+
+  signals[PRESENTATION_STARTED] =
+    g_signal_new ("presentation-started",
+                  G_OBJECT_CLASS_TYPE (gobject_class),
+                  G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
+                  0, NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0,
+                  G_TYPE_NONE);
 }
 
 GtkWidget *

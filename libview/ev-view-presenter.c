@@ -28,6 +28,7 @@
 #include "ev-view-presenter-timer.h"
 
 #include "ev-view-presenter-widget-private.h"
+#include "ev-view-presentation-private.h"
 
 enum {
         PROP_0,
@@ -108,10 +109,21 @@ ev_view_presenter_init (EvViewPresenter *self)
 }
 
 static void
+presentation_started_cb (GObject *obj,
+                         gpointer data)
+{
+  EvViewPresenter *self = EV_VIEW_PRESENTER (data);
+
+  ev_view_presentation_set_normal (self->presentation);
+}
+
+static void
 ev_view_presenter_constructed (GObject *obj)
 {
         EvViewPresenter *self = EV_VIEW_PRESENTER (obj);
         GtkWidget       *left_box;
+
+        ev_view_presentation_set_black (self->presentation);
 
         gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                         GTK_ORIENTATION_HORIZONTAL);
@@ -125,6 +137,11 @@ ev_view_presenter_constructed (GObject *obj)
                             TRUE, TRUE, 0);
 
         self->timer = ev_view_presenter_timer_new ();
+        g_signal_connect (self->timer,
+                          "presentation-started",
+                          G_CALLBACK (presentation_started_cb),
+                          self);
+
         self->notes = ev_view_presenter_note_new (self->presentation);
         gtk_box_pack_start (GTK_BOX (left_box), self->timer,
                             FALSE, TRUE, 0);
