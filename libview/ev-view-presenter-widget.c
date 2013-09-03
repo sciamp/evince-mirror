@@ -662,7 +662,7 @@ ev_view_presenter_widget_update_next_slide_surface (EvViewPresenterWidget *self,
 
 static gdouble
 ev_view_presenter_widget_get_scale_for_page (EvViewPresenterWidget *self,
-                                      gint                   page)
+                                             gint                   page)
 {
         EvDocument *document =
                 ev_view_presentation_get_document (self->presentation);
@@ -746,11 +746,10 @@ ev_view_presenter_widget_get_page_area_next_slide (EvViewPresenterWidget *self,
                                                 &view_width, &view_height);
 
 	page_area->x = 0;
-	page_area->y = self->monitor_height / 2;
+	page_area->y = (self->monitor_height / 2);
 	page_area->width = view_width;
 	page_area->height = view_height;
 }
-
 static gboolean
 ev_view_presenter_widget_draw (GtkWidget *widget,
                                cairo_t   *cr)
@@ -815,13 +814,24 @@ ev_view_presenter_widget_draw (GtkWidget *widget,
                 ev_view_presenter_widget_get_page_area_next_slide (presenter,
                                                                    &page_area);
                 if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
+                  /* About this "random" numbers I'm not crazy: */
+                  /* if you try to scale by 90% the next slide */
+                  /* and want to place it centered in the 100% space */
+                  /* this is a way. Please grab a piece of paper and */
+                  /* try to do the math, if you find a better */
+                  /* solution please give me a shout. Thanks! :) */
                         cairo_save (cr);
+                        cairo_scale (cr, 0.9, 0.9);
 
                         if (overlap.width == page_area.width)
                                 overlap.width--;
 
-                        cairo_rectangle (cr, overlap.x, overlap.y, overlap.width, overlap.height);
-                        cairo_set_source_surface (cr, next_slide_s, page_area.x, page_area.y);
+                        cairo_rectangle (cr, overlap.x + (overlap.width * 0.05),
+                                         overlap.y * 1.17, overlap.width * 1.05,
+                                         overlap.height * 1.17);
+                        cairo_set_source_surface (cr, next_slide_s,
+                                                  page_area.x + (overlap.width * 0.05),
+                                                  page_area.y * 1.17);
                         cairo_fill (cr);
                         cairo_restore (cr);
                 }
