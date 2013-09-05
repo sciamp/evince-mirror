@@ -44,6 +44,7 @@ struct _EvViewPresenterTimer {
   GtkWidget      *time_box;
 
   GtkWidget      *toggle_button;
+  GtkWidget      *button_image;
   gint            state;
 };
 
@@ -123,16 +124,18 @@ toggle_timer_cb (GtkButton *button,
   case PRESENTATION_RUNNING:
     g_timer_stop (self->timer);
     self->state = PRESENTATION_PAUSED;
-    gtk_button_set_label (GTK_BUTTON (self->toggle_button),
-                          _("Start"));
+    gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
+                                  GTK_STOCK_MEDIA_PLAY,
+                                  GTK_ICON_SIZE_DIALOG);
     break;
   case PRESENTATION_IDLE:
     g_signal_emit_by_name (self, "presentation-started");
   case PRESENTATION_PAUSED:
     g_timer_continue (self->timer);
     self->state = PRESENTATION_RUNNING;
-    gtk_button_set_label (GTK_BUTTON (self->toggle_button),
-                          _("Pause"));
+    gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
+                                  GTK_STOCK_MEDIA_PAUSE,
+                                  GTK_ICON_SIZE_DIALOG);
     break;
   default:
     g_assert_not_reached ();
@@ -148,7 +151,11 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* timer buttons */
   self->toggle_button = gtk_button_new ();
+  gtk_button_set_always_show_image (GTK_BUTTON (self->toggle_button),
+                                    TRUE);
   g_signal_connect (self->toggle_button, "clicked",
+                    G_CALLBACK (toggle_timer_cb), self);
+  g_signal_connect (self->button_image, "button-press-event",
                     G_CALLBACK (toggle_timer_cb), self);
   gtk_widget_set_halign (self->toggle_button,
                          GTK_ALIGN_CENTER);
@@ -192,8 +199,10 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* presentation started in paused state */
   self->state = PRESENTATION_IDLE;
-  gtk_button_set_label (GTK_BUTTON (self->toggle_button),
-                        _("Start"));
+  self->button_image = gtk_image_new_from_icon_name (GTK_STOCK_MEDIA_PLAY,
+                                                     GTK_ICON_SIZE_DIALOG);
+  gtk_button_set_image (GTK_BUTTON (self->toggle_button),
+                        self->button_image);
   g_timer_stop (self->timer);
   g_timer_reset (self->timer);
 
@@ -213,8 +222,14 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "GtkBox > GtkLabel {\n"
                                    "  background-color: black;\n"
                                    "  color: white; }\n"
-                                   "GtkButton {\n"
-                                   "  font-size: 14px; }",
+                                   /* "GtkImage {\n" */
+                                   /* "  background-color: black; }\n" */
+                                   /* "GtkButton {\n" */
+                                   /* "  border-color: black;\n" */
+                                   /* "  border-width: 0;\n" */
+                                   /* "  border-style: none;\n" */
+                                   /* "  padding-left: 0;\n" */
+                                   /* "  background-color: black; }" */,
                                    -1, NULL);
   gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
                                              GTK_STYLE_PROVIDER (provider),
