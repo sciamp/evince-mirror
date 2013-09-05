@@ -154,7 +154,7 @@ ev_view_presenter_note_constructed (GObject *obj)
                                          "EvViewPresenterNote {\n"
                                          "  background-color: black;\n"
                                          "  color: white;\n"
-                                         "  font-size: 14px; }",
+                                         "  font-size: 20px; }",
                                          -1, NULL);
         gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
                                                    GTK_STYLE_PROVIDER (provider),
