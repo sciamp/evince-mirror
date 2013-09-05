@@ -45,6 +45,7 @@ enum {
 	CHANGE_PAGE,
 	FINISHED,
         SIGNAL_EXTERNAL_LINK,
+        BOTTOM_REACHED,
 	N_SIGNALS
 };
 
@@ -1039,6 +1040,8 @@ ev_view_presentation_draw_end_page (EvViewPresentation *pview,
 	if (pview->state != EV_PRESENTATION_END)
 		return;
 
+        g_signal_emit (pview, signals[BOTTOM_REACHED], 0, NULL);
+
 	layout = gtk_widget_create_pango_layout (widget, NULL);
 	markup = g_strdup_printf ("<span foreground=\"white\">%s</span>", text);
 	pango_layout_set_markup (layout, markup, -1);
@@ -1531,6 +1534,14 @@ ev_view_presentation_class_init (EvViewPresentationClass *klass)
                               g_cclosure_marshal_VOID__OBJECT,
                               G_TYPE_NONE, 1,
                               G_TYPE_OBJECT);
+        signals[BOTTOM_REACHED] =
+                g_signal_new ("bottom-reached",
+                              G_OBJECT_CLASS_TYPE (gobject_class),
+                              G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
+                              0, NULL, NULL,
+                              g_cclosure_marshal_VOID__VOID,
+                              G_TYPE_NONE, 0,
+                              G_TYPE_NONE);
 
 	binding_set = gtk_binding_set_by_class (klass);
 	add_change_page_binding_keypad (binding_set, GDK_KEY_Left,  0, GTK_SCROLL_PAGE_BACKWARD);

@@ -109,6 +109,14 @@ ev_view_presenter_init (EvViewPresenter *self)
 }
 
 static void
+presentation_end_cb (GObject *obj,
+                     gpointer data)
+{
+  EvViewPresenter *self = EV_VIEW_PRESENTER (data);
+  g_print ("Presentation ended!\n");
+}
+
+static void
 presentation_started_cb (GObject *obj,
                          gpointer data)
 {
@@ -124,6 +132,10 @@ ev_view_presenter_constructed (GObject *obj)
         GtkWidget       *left_box;
 
         ev_view_presentation_set_black (self->presentation);
+        g_signal_connect (self->presentation,
+                          "bottom-reached",
+                          G_CALLBACK (presentation_end_cb),
+                          self);
 
         gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                         GTK_ORIENTATION_HORIZONTAL);
