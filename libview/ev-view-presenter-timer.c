@@ -38,9 +38,6 @@ struct _EvViewPresenterTimer {
   GtkWidget      *time;
   GtkWidget      *slide_time;
   gint            last_slide_time;
-  PangoAttrList  *attr_list;
-  PangoAttribute *weight;
-  PangoAttribute *size;
   GtkWidget      *time_box;
 
   GtkWidget      *toggle_button;
@@ -169,20 +166,6 @@ ev_view_presenter_timer_constructed (GObject *obj)
   self->slide_time = gtk_label_new (zero);
   self->last_slide_time = 0;
 
-  self->attr_list = pango_attr_list_new ();
-  self->weight = pango_attr_weight_new (PANGO_WEIGHT_ULTRABOLD);
-  self->size = pango_attr_size_new_absolute (100*PANGO_SCALE);
-
-  pango_attr_list_insert (self->attr_list,
-                          self->weight);
-  pango_attr_list_insert (self->attr_list,
-                          self->size);
-  gtk_label_set_attributes (GTK_LABEL (self->time),
-                            self->attr_list);
-
-  gtk_label_set_attributes (GTK_LABEL (self->slide_time),
-                            self->attr_list);
-
   self->time_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL,
                                 0);
   gtk_box_pack_start (GTK_BOX (self->time_box),
@@ -220,6 +203,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "GtkWindow {\n"
                                    "  background-color: black; }\n"
                                    "GtkBox > GtkLabel {\n"
+                                   "  font-size: 6em;\n"
                                    "  background-color: black;\n"
                                    "  color: white; }\n"
                                    "GtkImage {\n"
@@ -238,11 +222,6 @@ static void
 ev_view_presenter_timer_dispose (GObject *obj)
 {
   EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (obj);
-
-  /* calling destroy after gtk_label_set_attributes crashes */
-  pango_attribute_destroy (self->weight);
-  pango_attribute_destroy (self->size);
-  pango_attr_list_unref (self->attr_list);
 
   g_timer_destroy (self->timer);
 
