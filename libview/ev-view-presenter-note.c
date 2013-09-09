@@ -113,8 +113,8 @@ ev_view_presenter_note_constructed (GObject *obj)
         GFile               *file;
         GtkCssProvider      *provider;
 
-        gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 20);
-        gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 20);
+        gtk_text_view_set_left_margin (GTK_TEXT_VIEW (self), 30);
+        gtk_text_view_set_right_margin (GTK_TEXT_VIEW (self), 30);
         gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (self), GTK_WRAP_WORD);
         gtk_text_view_set_editable (GTK_TEXT_VIEW (self), FALSE);
         gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (self), FALSE);
@@ -154,7 +154,7 @@ ev_view_presenter_note_constructed (GObject *obj)
                                          "EvViewPresenterNote {\n"
                                          "  background-color: black;\n"
                                          "  color: white;\n"
-                                         "  font-size: 20px; }",
+                                         "  font-size: 2.5em; }",
                                          -1, NULL);
         gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
                                                    GTK_STYLE_PROVIDER (provider),
