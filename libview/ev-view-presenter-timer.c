@@ -125,7 +125,7 @@ toggle_timer_cb (GtkButton *button,
     g_timer_stop (self->timer);
     self->state = PRESENTATION_PAUSED;
     gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
-                                  GTK_STOCK_MEDIA_PLAY,
+                                  "gtk-media-play",
                                   GTK_ICON_SIZE_DIALOG);
     break;
   case PRESENTATION_IDLE:
@@ -134,7 +134,7 @@ toggle_timer_cb (GtkButton *button,
     g_timer_continue (self->timer);
     self->state = PRESENTATION_RUNNING;
     gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
-                                  GTK_STOCK_MEDIA_PAUSE,
+                                  "gtk-media-pause",
                                   GTK_ICON_SIZE_DIALOG);
     break;
   default:
@@ -199,7 +199,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* presentation started in paused state */
   self->state = PRESENTATION_IDLE;
-  self->button_image = gtk_image_new_from_icon_name (GTK_STOCK_MEDIA_PLAY,
+  self->button_image = gtk_image_new_from_icon_name ("gtk-media-play",
                                                      GTK_ICON_SIZE_DIALOG);
   gtk_button_set_image (GTK_BUTTON (self->toggle_button),
                         self->button_image);
@@ -222,14 +222,11 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "GtkBox > GtkLabel {\n"
                                    "  background-color: black;\n"
                                    "  color: white; }\n"
-                                   /* "GtkImage {\n" */
-                                   /* "  background-color: black; }\n" */
-                                   /* "GtkButton {\n" */
-                                   /* "  border-color: black;\n" */
-                                   /* "  border-width: 0;\n" */
-                                   /* "  border-style: none;\n" */
-                                   /* "  padding-left: 0;\n" */
-                                   /* "  background-color: black; }" */,
+                                   "GtkImage {\n"
+                                   "  background-color: black; }\n"
+                                   "GtkButton {\n"
+                                   "  border-image: none;\n"
+                                   "  background-image: none; }",
                                    -1, NULL);
   gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
                                              GTK_STYLE_PROVIDER (provider),
