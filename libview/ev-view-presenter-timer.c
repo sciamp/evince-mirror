@@ -209,6 +209,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "GtkImage {\n"
                                    "  background-color: black; }\n"
                                    "GtkButton {\n"
+                                   "  background-color: black;\n"
                                    "  border-image: none;\n"
                                    "  background-image: none; }",
                                    -1, NULL);
