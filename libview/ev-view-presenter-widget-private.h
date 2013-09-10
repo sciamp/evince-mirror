@@ -21,8 +21,11 @@
 #ifndef __EV_VIEW_PRESENTER_WIDGET_PRIVATE_H__
 #define __EV_VIEW_PRESENTER_WIDGET_PRIVATE_H__
 
-void ev_view_presenter_widget_next_page     (EvViewPresenterWidget *self);
+void ev_view_presenter_widget_next_page           (EvViewPresenterWidget *self);
 
-void ev_view_presenter_widget_previous_page (EvViewPresenterWidget *self);
+void ev_view_presenter_widget_previous_page       (EvViewPresenterWidget *self);
+
+void ev_view_presenter_widget_update_current_page (EvViewPresenterWidget *self,
+                                                   gint                   page);
 
 #endif /* __EV_VIEW_PRESENTER_WIDGET_PRIVATE_H__ */

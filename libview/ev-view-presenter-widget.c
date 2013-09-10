@@ -146,7 +146,7 @@ ev_view_presenter_widget_delete_job (EvViewPresenterWidget *self,
         g_object_unref (job);
 }
  
-static void
+void
 ev_view_presenter_widget_update_current_page (EvViewPresenterWidget *self,
                                               gint                   page)
 {
@@ -473,22 +473,6 @@ ev_view_presenter_widget_dispose (GObject *obj)
         G_OBJECT_CLASS (ev_view_presenter_widget_parent_class)->dispose (obj);
 }
 
-static void
-sync_with_presentation (GObject    *obj,
-                        GParamSpec *pspec,
-                        gpointer    data)
-{
-        EvViewPresentation *presentation;
-        gint             current_page;
-
-        presentation = EV_VIEW_PRESENTATION (obj);
-
-        current_page =
-                ev_view_presentation_get_current_page (presentation);
-
-        ev_view_presenter_widget_update_current_page (data, current_page);
-}
-
 static GObject *
 ev_view_presenter_widget_constructor (GType                  type,
                                       guint                  n_construct_properties,
@@ -501,11 +485,6 @@ ev_view_presenter_widget_constructor (GType                  type,
                                                                                    construct_params);
 
         EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
-
-        g_signal_connect (presenter->presentation,
-                          "notify::current-page",
-                          G_CALLBACK (sync_with_presentation),
-                          presenter);
 
         presenter->scale = 0;
 

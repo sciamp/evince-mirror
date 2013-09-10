@@ -126,10 +126,36 @@ presentation_started_cb (GObject *obj,
 }
 
 static void
+sync_with_presentation (GObject    *obj,
+                        GParamSpec *pspec,
+                        gpointer    data)
+{
+        EvViewPresentation *presentation;
+        gint                current_page;
+        EvViewPresenter    *self;
+
+        presentation = EV_VIEW_PRESENTATION (obj);
+        self = EV_VIEW_PRESENTER (data);
+
+        current_page =
+                ev_view_presentation_get_current_page (presentation);
+
+        ev_view_presenter_widget_update_current_page (EV_VIEW_PRESENTER_WIDGET (self->presenter_widget),
+                                                      current_page);
+        ev_view_presenter_timer_reset_slide_time (EV_VIEW_PRESENTER_TIMER (self->timer));
+}
+
+static void
 ev_view_presenter_constructed (GObject *obj)
 {
         EvViewPresenter *self = EV_VIEW_PRESENTER (obj);
         GtkWidget       *left_box;
+
+
+        g_signal_connect (self->presentation,
+                          "notify::current-page",
+                          G_CALLBACK (sync_with_presentation),
+                          self);
 
         ev_view_presentation_set_black (self->presentation);
         g_signal_connect (self->presentation,
