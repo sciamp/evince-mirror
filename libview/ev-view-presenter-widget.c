@@ -158,7 +158,7 @@ ev_view_presenter_widget_update_current_page (EvViewPresenterWidget *self,
         EvViewPresentation *presentation = self->presentation;
 
         if (page < 0 || page >= document_page_num)
-                return; 
+                return;
 
         jump = page - self->current_page;
 
@@ -369,12 +369,8 @@ ev_view_presenter_widget_update_current_page (EvViewPresenterWidget *self,
                                                                    EV_JOB_PRIORITY_LOW);
         }
 
-        if (self->current_page != page) {
+        if (self->current_page != page)
                 self->current_page = page;
-                /* right now the presenter widget is not owning notes */
-                /* ev_view_presenter_widget_note_for_page (EV_VIEW_PRESENTER_NOTE (self->notes), */
-                /*                                         page); */
-        }
 
         if (self->current_page !=
             ev_view_presentation_get_current_page (presentation))
@@ -561,8 +557,7 @@ init_presenter (GtkWidget *widget)
         presenter->current_page = current_page;
 
         ev_view_presenter_widget_update_current_page (presenter, current_page);
-        /* ev_view_presenter_widget_note_for_page (EV_VIEW_PRESENTER_NOTE (presenter->notes), */
-                                                /* current_page); */
+
         return FALSE;
 }
 
@@ -645,8 +640,6 @@ ev_view_presenter_widget_get_scale_for_page (EvViewPresenterWidget *self,
 {
         EvDocument *document =
                 ev_view_presentation_get_document (self->presentation);
-        /* gdouble     scale = */
-        /*         ev_view_presentation_get_scale (self->presentation); */
         guint       rotation =
                 ev_view_presentation_get_rotation (self->presentation);
 
@@ -740,6 +733,11 @@ ev_view_presenter_widget_draw (GtkWidget *widget,
         cairo_surface_t       *curr_slide_s;
         cairo_surface_t       *next_slide_s;
         GdkRectangle           clip_rect;
+        EvDocument            *document =
+          ev_view_presentation_get_document (presentation);
+        gint                   document_page_num =
+          ev_document_get_n_pages (document);
+
 
         if (!gdk_cairo_get_clip_rectangle (cr, &clip_rect))
                 return FALSE;
@@ -765,7 +763,8 @@ ev_view_presenter_widget_draw (GtkWidget *widget,
         if (next_slide_s)
                 ev_view_presenter_widget_update_next_slide_surface (presenter,
                                                                     next_slide_s);
-        else if (presenter->next_slide_surface)
+        else if (presenter->next_slide_surface &&
+                 presenter->current_page < document_page_num - 1)
                 next_slide_s = presenter->next_slide_surface;
 
         if (!curr_slide_s && !next_slide_s)
@@ -789,31 +788,34 @@ ev_view_presenter_widget_draw (GtkWidget *widget,
                 gtk_widget_set_size_request (GTK_WIDGET (presenter), page_area.width, -1);
         }
 
-        if (next_slide_s) {
-                ev_view_presenter_widget_get_page_area_next_slide (presenter,
-                                                                   &page_area);
-                if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
-                  /* About this "random" numbers I'm not crazy: */
-                  /* if you try to scale by 90% the next slide */
-                  /* and want to place it centered in the 100% space */
-                  /* this is a way. Please grab a piece of paper and */
-                  /* try to do the math, if you find a better */
-                  /* solution please give me a shout. Thanks! :) */
-                        cairo_save (cr);
-                        cairo_scale (cr, 0.9, 0.9);
+        ev_view_presenter_widget_get_page_area_next_slide (presenter,
+                                                           &page_area);
+        if (gdk_rectangle_intersect (&page_area, &clip_rect, &overlap)) {
+          /* About this "random" numbers I'm not crazy: */
+          /* if you try to scale by 90% the next slide */
+          /* and want to place it centered in the 100% space */
+          /* this is a way. Please grab a piece of paper and */
+          /* try to do the math, if you find a better */
+          /* solution please give me a shout. Thanks! :) */
+          cairo_save (cr);
+          cairo_scale (cr, 0.9, 0.9);
 
-                        if (overlap.width == page_area.width)
-                                overlap.width--;
+          if (overlap.width == page_area.width)
+            overlap.width--;
 
-                        cairo_rectangle (cr, overlap.x + (overlap.width * 0.05),
-                                         overlap.y * 1.17, overlap.width * 1.05,
-                                         overlap.height * 1.17);
-                        cairo_set_source_surface (cr, next_slide_s,
-                                                  page_area.x + (overlap.width * 0.05),
-                                                  page_area.y * 1.17);
-                        cairo_fill (cr);
-                        cairo_restore (cr);
-                }
+          cairo_rectangle (cr, overlap.x + (overlap.width * 0.05),
+                           overlap.y * 1.17, overlap.width * 1.05,
+                           overlap.height * 1.17);
+
+          if (next_slide_s)
+            cairo_set_source_surface (cr, next_slide_s,
+                                      page_area.x + (overlap.width * 0.05),
+                                      page_area.y * 1.17);
+          else
+            cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+
+          cairo_fill (cr);
+          cairo_restore (cr);
         }
 
         return FALSE;
