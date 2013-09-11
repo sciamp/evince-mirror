@@ -122,7 +122,7 @@ toggle_timer_cb (GtkButton *button,
     g_timer_stop (self->timer);
     self->state = PRESENTATION_PAUSED;
     gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
-                                  "gtk-media-play",
+                                  "media-playback-start-symbolic",
                                   GTK_ICON_SIZE_DIALOG);
     break;
   case PRESENTATION_IDLE:
@@ -131,7 +131,7 @@ toggle_timer_cb (GtkButton *button,
     g_timer_continue (self->timer);
     self->state = PRESENTATION_RUNNING;
     gtk_image_set_from_icon_name (GTK_IMAGE (self->button_image),
-                                  "gtk-media-pause",
+                                  "media-playback-pause-symbolic",
                                   GTK_ICON_SIZE_DIALOG);
     break;
   default:
@@ -182,7 +182,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
 
   /* presentation started in paused state */
   self->state = PRESENTATION_IDLE;
-  self->button_image = gtk_image_new_from_icon_name ("gtk-media-play",
+  self->button_image = gtk_image_new_from_icon_name ("media-playback-start-symbolic",
                                                      GTK_ICON_SIZE_DIALOG);
   gtk_button_set_image (GTK_BUTTON (self->toggle_button),
                         self->button_image);
@@ -207,7 +207,8 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "  background-color: black;\n"
                                    "  color: white; }\n"
                                    "GtkImage {\n"
-                                   "  background-color: black; }\n"
+                                   "  background-color: black;\n"
+                                   "  color: white; }\n"
                                    "GtkButton {\n"
                                    "  background-color: black;\n"
                                    "  border-image: none;\n"
