@@ -203,7 +203,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
                                    "GtkWindow {\n"
                                    "  background-color: black; }\n"
                                    "GtkBox > GtkLabel {\n"
-                                   "  font-size: 6em;\n"
+                                   "  font-size: 4em;\n"
                                    "  background-color: black;\n"
                                    "  color: white; }\n"
                                    "GtkImage {\n"
