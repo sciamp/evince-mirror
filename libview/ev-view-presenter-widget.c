@@ -455,20 +455,6 @@ ev_view_presenter_widget_next_page (EvViewPresenterWidget *self)
                                                               new_page);
 }
 
-static void
-ev_view_presenter_widget_dispose (GObject *obj)
-{
-        EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
-
-        if (presenter->presentation)
-        {
-                g_object_unref (presenter->presentation);
-                presenter->presentation = NULL;
-        }
-
-        G_OBJECT_CLASS (ev_view_presenter_widget_parent_class)->dispose (obj);
-}
-
 static GObject *
 ev_view_presenter_widget_constructor (GType                  type,
                                       guint                  n_construct_properties,
@@ -898,7 +884,6 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
         GtkCssProvider *provider;
 
-        gobject_class->dispose = ev_view_presenter_widget_dispose;
         gobject_class->constructor = ev_view_presenter_widget_constructor;
         gobject_class->set_property = ev_view_presenter_widget_set_property;
         gobject_class->get_property = ev_view_presenter_widget_get_property;
