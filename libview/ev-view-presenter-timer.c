@@ -225,12 +225,10 @@ ev_view_presenter_timer_dispose (GObject *obj)
 {
   EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (obj);
 
-  g_timer_destroy (self->timer);
-
-  g_object_unref (self->time);
-  g_object_unref (self->slide_time);
-  g_object_unref (self->time_box);
-  g_object_unref (self->toggle_button);
+  if (self->timer) {
+    g_timer_destroy (self->timer);
+    self->timer = NULL;
+  }
 
   G_OBJECT_CLASS (ev_view_presenter_timer_parent_class)->dispose (obj);
 }

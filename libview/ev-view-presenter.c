@@ -64,24 +64,6 @@ static guint signals[N_SIGNALS] = { 0 };
 G_DEFINE_TYPE (EvViewPresenter, ev_view_presenter, GTK_TYPE_BOX)
 
 static void
-ev_view_presenter_dispose (GObject *obj)
-{
-        EvViewPresenter *self = EV_VIEW_PRESENTER (obj);
-
-        if (self->presentation) {
-                g_object_unref (self->presentation);
-                self->presentation = NULL;
-        }
-
-        if (self->notes) {
-                g_object_unref (self->notes);
-                self->notes = NULL;
-        }
-
-        G_OBJECT_CLASS (ev_view_presenter_parent_class)->dispose (obj);
-}
-
-static void
 ev_view_presenter_set_property (GObject      *obj,
                                 guint         prop_id,
                                 const GValue *value,
@@ -235,7 +217,6 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
 
         klass->change_page = ev_view_presenter_change_page;
 
-        gobject_class->dispose = ev_view_presenter_dispose;
         gobject_class->set_property = ev_view_presenter_set_property;
         gobject_class->constructed = ev_view_presenter_constructed;
 

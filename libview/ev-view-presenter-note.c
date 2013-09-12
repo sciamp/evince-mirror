@@ -33,6 +33,8 @@ struct _EvViewPresenterNote {
 
         GtkTextView         parent_instance;
 
+        GtkTextBuffer      *buffer;
+
         EvViewPresentation *presentation;
 
         JsonParser         *parser;
@@ -52,7 +54,6 @@ ev_view_presenter_note_set_page (EvViewPresenterNote *self,
                                  gint                 page)
 {
         GString             *page_str;
-        GtkTextBuffer       *buffer;
 
         page_str = g_string_new ("");
         g_string_printf (page_str, "%d", page);
@@ -61,12 +62,11 @@ ev_view_presenter_note_set_page (EvViewPresenterNote *self,
         const gchar *note = json_reader_get_string_value (self->reader);
         json_reader_end_member (self->reader);
 
-        buffer = gtk_text_buffer_new (NULL);
         if (note == NULL)
-                gtk_text_buffer_set_text (buffer, "No notes defined for current slide :(", -1);
+                gtk_text_buffer_set_text (self->buffer, "No notes defined for current slide :(", -1);
         else
-                gtk_text_buffer_set_text (buffer, note, -1);
-        gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), buffer);
+                gtk_text_buffer_set_text (self->buffer, note, -1);
+        gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), self->buffer);
 }
 
 static void
@@ -135,17 +135,18 @@ ev_view_presenter_note_constructed (GObject *obj)
                                   G_CALLBACK (update_note_page_cb),
                                   self);
 
+		self->buffer = gtk_text_buffer_new (NULL);
                 ev_view_presenter_note_set_page (self,
                                                  ev_view_presentation_get_current_page (self->presentation));
         } else {
-                GtkTextBuffer *buff = gtk_text_buffer_new (NULL);
-                gtk_text_buffer_set_text (buff,
+                self->buffer = gtk_text_buffer_new (NULL);
+                gtk_text_buffer_set_text (self->buffer,
                                           g_strjoin (NULL,
                                                      "To start using notes with this presentation just create the note file ",
                                                      uri,
                                                      NULL),
                                           -1);
-                gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), buff);
+                gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), self->buffer);
         }
 
         /* style */
@@ -174,6 +175,29 @@ ev_view_presenter_note_key_press_event (GtkWidget   *widget,
 }
 
 static void
+ev_view_presenter_note_dispose (GObject *obj)
+{
+  EvViewPresenterNote *self = EV_VIEW_PRESENTER_NOTE (obj);
+
+  if (self->parser) {
+    g_object_unref (self->parser);
+    self->parser = NULL;
+  }
+
+  if (self->reader) {
+    g_object_unref (self->reader);
+    self->reader = NULL;
+  }
+
+  if (self->buffer) {
+    g_object_unref (self->buffer);
+    self->buffer = NULL;
+  }
+
+  G_OBJECT_CLASS (ev_view_presenter_note_parent_class)->dispose (obj);
+}
+
+static void
 ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
 {
         GtkCssProvider *provider;
@@ -182,6 +206,7 @@ ev_view_presenter_note_class_init (EvViewPresenterNoteClass *klass)
 
         gobject_class->set_property = ev_view_presenter_note_set_property;
         gobject_class->constructed = ev_view_presenter_note_constructed;
+	gobject_class->dispose = ev_view_presenter_note_dispose;
 
         widget_class->key_press_event = ev_view_presenter_note_key_press_event;
 
