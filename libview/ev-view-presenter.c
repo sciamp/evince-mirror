@@ -212,9 +212,9 @@ ev_view_presenter_change_page (EvViewPresenter *self,
 static void
 ev_view_presenter_class_init (EvViewPresenterClass *klass)
 {
-        GObjectClass  *gobject_class = G_OBJECT_CLASS (klass);
-        GtkBindingSet *binding_set;
-
+        GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
+        GtkBindingSet  *binding_set;
+        GtkCssProvider *provider;
         klass->change_page = ev_view_presenter_change_page;
 
         gobject_class->set_property = ev_view_presenter_set_property;
@@ -278,6 +278,25 @@ ev_view_presenter_class_init (EvViewPresenterClass *klass)
 	gtk_binding_entry_add_signal (binding_set, GDK_KEY_K, 0,
 				      "change_page", 1,
 				      GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_BACKWARD);
+
+        /* style */
+        provider = gtk_css_provider_new ();
+        gtk_css_provider_load_from_data (provider,
+                                         "GtkWindow#presenter {\n"
+                                         "  background-color: black;\n"
+                                         "  color: white; }\n"
+                                         "EvViewPresenterTimer > GtkButton {\n"
+                                         "  background-image: none;\n"
+                                         "  border-image: none;\n"
+                                         "  background-color: black;\n"
+                                         "  color: white; }\n"
+                                         "EvViewPresenterTimer {\n"
+                                         "  font-size: 4em; }\n",
+                                         -1, NULL);
+        gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+                                                   GTK_STYLE_PROVIDER (provider),
+                                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        g_object_unref (provider);
 }
 
 GtkWidget *
