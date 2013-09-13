@@ -144,7 +144,6 @@ ev_view_presenter_timer_constructed (GObject *obj)
 {
   EvViewPresenterTimer *self = EV_VIEW_PRESENTER_TIMER (obj);
   const gchar          *zero = "00:00:00";
-  GtkCssProvider       *provider;
 
   /* timer buttons */
   self->toggle_button = gtk_button_new ();
@@ -196,28 +195,6 @@ ev_view_presenter_timer_constructed (GObject *obj)
                       TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (self), GTK_WIDGET (self->time_box),
                       TRUE, TRUE, 0);
-
-  /* style */
-  provider = gtk_css_provider_new ();
-  gtk_css_provider_load_from_data (provider,
-                                   "GtkWindow {\n"
-                                   "  background-color: black; }\n"
-                                   "GtkBox > GtkLabel {\n"
-                                   "  font-size: 4em;\n"
-                                   "  background-color: black;\n"
-                                   "  color: white; }\n"
-                                   "GtkImage {\n"
-                                   "  background-color: black;\n"
-                                   "  color: white; }\n"
-                                   "GtkButton {\n"
-                                   "  background-color: black;\n"
-                                   "  border-image: none;\n"
-                                   "  background-image: none; }",
-                                   -1, NULL);
-  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
-                                             GTK_STYLE_PROVIDER (provider),
-                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-  g_object_unref (provider);
 }
 
 static void

@@ -152,7 +152,7 @@ ev_view_presenter_note_constructed (GObject *obj)
         /* style */
         provider = gtk_css_provider_new ();
         gtk_css_provider_load_from_data (provider,
-                                         "EvViewPresenterNote {\n"
+                                         "GtkTextView {\n"
                                          "  background-color: black;\n"
                                          "  color: white;\n"
                                          "  font-size: 2.5em; }",

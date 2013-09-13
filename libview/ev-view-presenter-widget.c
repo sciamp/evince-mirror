@@ -882,7 +882,6 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
 {
         GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
         GObjectClass   *gobject_class = G_OBJECT_CLASS (klass);
-        GtkCssProvider *provider;
 
         gobject_class->constructor = ev_view_presenter_widget_constructor;
         gobject_class->set_property = ev_view_presenter_widget_set_property;
@@ -922,16 +921,6 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
 			      g_cclosure_marshal_VOID__VOID,
 			      G_TYPE_NONE, 0,
 			      G_TYPE_NONE);
-
-        provider = gtk_css_provider_new ();
-        gtk_css_provider_load_from_data (provider,
-                                         "EvViewPresenterWidget {\n"
-                                         " background-color: black; }",
-                                         -1, NULL);
-        gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
-                                                   GTK_STYLE_PROVIDER (provider),
-                                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-        g_object_unref (provider);
 }
 
 GtkWidget *
