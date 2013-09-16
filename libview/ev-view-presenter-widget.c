@@ -33,45 +33,47 @@
 #include "ev-view-presenter-widget-private.h"
 
 enum {
-        PROP_0,
-        PROP_PRESENTATION
+  PROP_0,
+  PROP_PRESENTATION,
+  PROP_NOTES
 };
 
 enum {
-        CHANGE_PAGE,
-        FINISHED,
-        EIGNAL_EXTERNAL_LINK,
-        N_SIGNALS
+  CHANGE_PAGE,
+  FINISHED,
+  EIGNAL_EXTERNAL_LINK,
+  N_SIGNALS
 };
 
 struct _EvViewPresenterWidget
 {
-        GtkWidget            base;
+  GtkWidget            base;
 
-        guint                is_constructing : 1;
+  guint                is_constructing : 1;
 
-        EvViewPresentation  *presentation;
+  EvViewPresentation  *presentation;
+  gboolean             notes;
 
-        gint                 current_page;
-        gdouble              scale;
-        gint                 monitor_width;
-        gint                 monitor_height;
-        cairo_surface_t     *curr_slide_surface;
-        cairo_surface_t     *next_slide_surface;
+  gint                 current_page;
+  gdouble              scale;
+  gint                 monitor_width;
+  gint                 monitor_height;
+  cairo_surface_t     *curr_slide_surface;
+  cairo_surface_t     *next_slide_surface;
 
-        EvJob               *prev_job;
-        EvJob               *curr_job;
-        EvJob               *next_job;
-        EvJob               *last_job;
+  EvJob               *prev_job;
+  EvJob               *curr_job;
+  EvJob               *next_job;
+  EvJob               *last_job;
 };
 
 struct _EvViewPresenterWidgetClass
 {
-        GtkWidgetClass                   base_class;
+  GtkWidgetClass                   base_class;
 
-        void (* change_page)            (EvViewPresenterWidget *self,
-                                         GtkScrollType          scroll);
-        void (* finished)               (EvViewPresenterWidget *self);
+  void (* change_page)            (EvViewPresenterWidget *self,
+                                   GtkScrollType          scroll);
+  void (* finished)               (EvViewPresenterWidget *self);
 };
 
 static guint signals[N_SIGNALS] = { 0 }; 
@@ -386,28 +388,27 @@ static void
 ev_view_presenter_widget_draw_end_page (EvViewPresenterWidget *self,
                                         cairo_t               *cr)
 {
-	GtkWidget *widget = GTK_WIDGET (self);
-	PangoLayout *layout;
-	PangoFontDescription *font_desc;
-	gchar *markup;
-	const gchar *text = _("End of presentation.");
+  GtkWidget *widget = GTK_WIDGET (self);
+  PangoLayout *layout;
+  PangoFontDescription *font_desc;
+  gchar *markup;
+  const gchar *text = _("End of presentation.");
 
-	layout = gtk_widget_create_pango_layout (widget, NULL);
-	markup = g_strdup_printf ("<span foreground=\"white\">%s</span>", text);
-	pango_layout_set_markup (layout, markup, -1);
-	g_free (markup);
+  layout = gtk_widget_create_pango_layout (widget, NULL);
+  markup = g_strdup_printf ("<span foreground=\"white\">%s</span>", text);
+  pango_layout_set_markup (layout, markup, -1);
+  g_free (markup);
 
-	font_desc = pango_font_description_new ();
-	pango_font_description_set_size (font_desc, 16 * PANGO_SCALE);
-	pango_layout_set_font_description (layout, font_desc);
+  font_desc = pango_font_description_new ();
+  pango_font_description_set_size (font_desc, 16 * PANGO_SCALE);
+  pango_layout_set_font_description (layout, font_desc);
 
-        gtk_render_layout (gtk_widget_get_style_context (widget),
-                           cr, 15, 15, layout);
+  gtk_render_layout (gtk_widget_get_style_context (widget),
+                     cr, 15, 15, layout);
 
-	pango_font_description_free (font_desc);
-	g_object_unref (layout);
+  pango_font_description_free (font_desc);
+  g_object_unref (layout);
 }
-
 
 static void
 ev_view_presenter_widget_presentation_end (EvViewPresenterWidget *self)
@@ -460,17 +461,17 @@ ev_view_presenter_widget_constructor (GType                  type,
                                       guint                  n_construct_properties,
                                       GObjectConstructParam *construct_params)
 {
-        GObject         *obj;
+  GObject         *obj;
  
-        obj = G_OBJECT_CLASS (ev_view_presenter_widget_parent_class)->constructor (type,
-                                                                                   n_construct_properties,
-                                                                                   construct_params);
+  obj = G_OBJECT_CLASS (ev_view_presenter_widget_parent_class)->constructor (type,
+                                                                             n_construct_properties,
+                                                                             construct_params);
 
-        EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
+  EvViewPresenterWidget *self = EV_VIEW_PRESENTER_WIDGET (obj);
 
-        presenter->scale = 0;
+  self->scale = 0;
 
-        return obj;
+  return obj;
 }
 
 static void
@@ -479,16 +480,17 @@ ev_view_presenter_widget_set_property (GObject      *obj,
                                        const GValue *value,
                                        GParamSpec   *pspec)
 {
+  EvViewPresenterWidget *self = EV_VIEW_PRESENTER_WIDGET (obj);
 
-        EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
-
-        switch (prop_id) {
-        case PROP_PRESENTATION:
-                presenter->presentation = g_value_dup_object (value);
-                break;
-        default:
-                G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-        }
+  switch (prop_id) {
+  case PROP_PRESENTATION:
+    self->presentation = g_value_dup_object (value);
+    break;
+  case PROP_NOTES:
+    self->notes = g_value_get_boolean (value);
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+  }
 }
 
 static void
@@ -497,16 +499,18 @@ ev_view_presenter_widget_get_property (GObject    *obj,
                                        GValue     *value,
                                        GParamSpec *pspec)
 {
-        EvViewPresenterWidget *presenter = EV_VIEW_PRESENTER_WIDGET (obj);
+  EvViewPresenterWidget *self = EV_VIEW_PRESENTER_WIDGET (obj);
 
-        switch (prop_id) {
-        case PROP_PRESENTATION:
-                g_value_set_pointer (value, 
-                                     g_object_ref (presenter->presentation));
-                break;
-        default:
-                G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-        }
+  switch (prop_id) {
+  case PROP_PRESENTATION:
+    g_value_set_pointer (value, 
+                         g_object_ref (self->presentation));
+    break;
+  case PROP_NOTES:
+    g_value_set_boolean (value, self->notes);
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+  }
 }
 
 static void
@@ -514,7 +518,7 @@ ev_view_presenter_widget_get_preferred_width (GtkWidget *widget,
                                               gint      *minimum,
                                               gint      *natural)
 {
-        *minimum = *natural = 0;
+  *minimum = *natural = 0;
 }
 
 static void
@@ -522,7 +526,7 @@ ev_view_presenter_widget_get_preferred_height (GtkWidget *widget,
                                                gint      *minimum,
                                                gint      *natural)
 {
-        *minimum = *natural = 0;
+  *minimum = *natural = 0;
 }
 
 static gboolean
@@ -624,26 +628,30 @@ static gdouble
 ev_view_presenter_widget_get_scale_for_page (EvViewPresenterWidget *self,
                                              gint                   page)
 {
-        EvDocument *document =
-                ev_view_presentation_get_document (self->presentation);
-        guint       rotation =
-                ev_view_presentation_get_rotation (self->presentation);
+  EvDocument *document =
+    ev_view_presentation_get_document (self->presentation);
+  guint       rotation =
+    ev_view_presentation_get_rotation (self->presentation);
 
-	if (!ev_document_is_page_size_uniform (document) || self->scale == 0) {
-		gdouble width, height;
+  if (!ev_document_is_page_size_uniform (document) || self->scale == 0) {
+    gdouble width, height;
 
-		ev_document_get_page_size (document, page, &width, &height);
-		if (rotation == 90 || rotation == 270) {
-			gdouble tmp;
+    ev_document_get_page_size (document, page, &width, &height);
+    if (rotation == 90 || rotation == 270) {
+      gdouble tmp;
 
-			tmp = width;
-			width = height;
-			height = tmp;
-		}
-		self->scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
-	}
+      tmp = width;
+      width = height;
+      height = tmp;
+    }
 
-	return self->scale;
+    if (self->notes)
+      self->scale = MIN ((self->monitor_width / 2) / width, (self->monitor_height / 2) / height);
+    else
+      self->scale = (self->monitor_width * 45 / 100) / width;
+  }
+
+  return self->scale;
 }
 
 static void
@@ -683,30 +691,38 @@ static void
 ev_view_presenter_widget_get_page_area_curr_slide (EvViewPresenterWidget *self,
                                                    GdkRectangle          *page_area)
 {
-        gint          view_width, view_height;
+  gint view_width, view_height;
 
-        ev_view_presenter_widget_get_view_size (self,
-                                                &view_width, &view_height);
+  ev_view_presenter_widget_get_view_size (self,
+                                          &view_width, &view_height);
 
-	page_area->x = 0;
-	page_area->y = 0;
-	page_area->width = view_width;
-	page_area->height = view_height;
+  if (self->notes)
+    page_area->x = 0;
+  else
+    page_area->x = (self->monitor_width / 2) - view_width - 40;
+
+  page_area->y = 0;
+  page_area->width = view_width;
+  page_area->height = view_height;
 }
 
 static void
 ev_view_presenter_widget_get_page_area_next_slide (EvViewPresenterWidget *self,
                                                    GdkRectangle          *page_area)
 {
-        gint          view_width, view_height;
+  gint view_width, view_height;
 
-        ev_view_presenter_widget_get_view_size (self,
-                                                &view_width, &view_height);
-
-	page_area->x = 0;
-	page_area->y = (self->monitor_height / 2);
-	page_area->width = view_width;
-	page_area->height = view_height;
+  ev_view_presenter_widget_get_view_size (self,
+                                          &view_width, &view_height);
+  if (self->notes) {
+    page_area->x = 0;
+    page_area->y = (self->monitor_height / 2);
+  } else {
+    page_area->x = self->monitor_width / 2 + 40;
+    page_area->y= 0;
+  }
+  page_area->width = view_width;
+  page_area->height = view_height;
 }
 static gboolean
 ev_view_presenter_widget_draw (GtkWidget *widget,
@@ -903,6 +919,14 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
                                                               G_PARAM_WRITABLE |
                                                               G_PARAM_CONSTRUCT_ONLY |
                                                               G_PARAM_STATIC_STRINGS));
+        g_object_class_install_property (gobject_class,
+                                         PROP_NOTES,
+                                         g_param_spec_boolean ("notes",
+                                                               "Notes",
+                                                               "Running with notes?",
+                                                               FALSE,
+                                                               G_PARAM_WRITABLE |
+                                                               G_PARAM_CONSTRUCT_ONLY));
 	signals[CHANGE_PAGE] =
 		g_signal_new ("change_page",
 			      G_OBJECT_CLASS_TYPE (gobject_class),
@@ -924,9 +948,11 @@ ev_view_presenter_widget_class_init (EvViewPresenterWidgetClass *klass)
 }
 
 GtkWidget *
-ev_view_presenter_widget_new (EvViewPresentation *presentation)
+ev_view_presenter_widget_new (EvViewPresentation *presentation,
+                              gboolean            with_notes)
 {
         return GTK_WIDGET (g_object_new (EV_TYPE_VIEW_PRESENTER_WIDGET,
                                          "presentation", presentation,
+                                         "notes", with_notes,
                                          NULL));
 }

@@ -41,7 +41,8 @@ typedef struct _EvViewPresenterWidget      EvViewPresenterWidget;
 typedef struct _EvViewPresenterWidgetClass EvViewPresenterWidgetClass;
 
 GType           ev_view_presenter_widget_get_type         (void) G_GNUC_CONST;
-GtkWidget      *ev_view_presenter_widget_new              (EvViewPresentation *presentation);
+GtkWidget      *ev_view_presenter_widget_new              (EvViewPresentation *presentation,
+                                                           gboolean            with_notes);
 guint           ev_view_presenter_widget_get_current_page (EvViewPresenterWidget *self);
 void            ev_view_presenter_widget_next_page        (EvViewPresenterWidget *self);
 void            ev_view_presenter_widget_previous_page    (EvViewPresenterWidget *self);

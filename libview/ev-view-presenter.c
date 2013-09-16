@@ -128,45 +128,61 @@ sync_with_presentation (GObject    *obj,
 }
 
 static void
+no_notes_cb (GObject *obj,
+             gpointer data)
+{
+  g_print ("no notes defined\n");
+}
+
+static void
 ev_view_presenter_constructed (GObject *obj)
 {
         EvViewPresenter *self = EV_VIEW_PRESENTER (obj);
         GtkWidget       *left_box;
+        gboolean         with_notes;
 
+        self->notes = ev_view_presenter_note_new (self->presentation);
+        ev_view_presentation_set_black (self->presentation);
+        self->timer = ev_view_presenter_timer_new ();
+        with_notes = ev_view_presenter_note_notes_defined (EV_VIEW_PRESENTER_NOTE (self->notes));
+        self->presenter_widget = ev_view_presenter_widget_new (self->presentation,
+                                                               with_notes);
 
         g_signal_connect (self->presentation,
                           "notify::current-page",
                           G_CALLBACK (sync_with_presentation),
                           self);
-
-        ev_view_presentation_set_black (self->presentation);
         g_signal_connect (self->presentation,
                           "bottom-reached",
                           G_CALLBACK (presentation_end_cb),
                           self);
-
-        gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
-                                        GTK_ORIENTATION_HORIZONTAL);
-
-        self->presenter_widget = ev_view_presenter_widget_new (self->presentation);
-        gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
-                            FALSE, TRUE, 0);
-
-        left_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-        gtk_box_pack_start (GTK_BOX (self), left_box,
-                            TRUE, TRUE, 0);
-
-        self->timer = ev_view_presenter_timer_new ();
         g_signal_connect (self->timer,
                           "presentation-started",
                           G_CALLBACK (presentation_started_cb),
                           self);
 
-        self->notes = ev_view_presenter_note_new (self->presentation);
-        gtk_box_pack_start (GTK_BOX (left_box), self->timer,
-                            FALSE, TRUE, 0);
-        gtk_box_pack_start (GTK_BOX (left_box), self->notes,
-                            TRUE, TRUE, 0);
+        if (with_notes) {
+          gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
+                                          GTK_ORIENTATION_HORIZONTAL);
+
+          gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
+                              FALSE, TRUE, 0);
+
+          left_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+          gtk_box_pack_start (GTK_BOX (self), left_box,
+                              TRUE, TRUE, 0);
+          gtk_box_pack_start (GTK_BOX (left_box), self->timer,
+                              FALSE, TRUE, 0);
+          gtk_box_pack_start (GTK_BOX (left_box), self->notes,
+                              TRUE, TRUE, 0);
+        } else {
+          gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
+                                          GTK_ORIENTATION_VERTICAL);
+          gtk_box_pack_start (GTK_BOX (self), self->timer,
+                              FALSE, TRUE, 0);
+          gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
+                              TRUE, TRUE, 0);
+        }
 
         G_OBJECT_CLASS (ev_view_presenter_parent_class)->constructed (obj);
 }

@@ -38,8 +38,9 @@ G_BEGIN_DECLS
 typedef struct _EvViewPresenterNote      EvViewPresenterNote;
 typedef struct _EvViewPresenterNoteClass EvViewPresenterNoteClass;
 
-GType      ev_view_presenter_note_get_type (void) G_GNUC_CONST;
-GtkWidget *ev_view_presenter_note_new      (EvViewPresentation  *presentation);
+GType      ev_view_presenter_note_get_type      (void) G_GNUC_CONST;
+GtkWidget *ev_view_presenter_note_new           (EvViewPresentation  *presentation);
+gboolean   ev_view_presenter_note_notes_defined (EvViewPresenterNote *self);
 
 G_END_DECLS
 

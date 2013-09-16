@@ -49,6 +49,17 @@ static GParamSpec *obj_properties[N_PROP] = { NULL, };
 
 G_DEFINE_TYPE (EvViewPresenterNote, ev_view_presenter_note, GTK_TYPE_TEXT_VIEW)
 
+gboolean
+ev_view_presenter_note_notes_defined (EvViewPresenterNote *self)
+{
+  gboolean defined = FALSE;
+
+  if (self->buffer != NULL)
+    defined = TRUE;
+
+  return defined;
+}
+
 static void
 ev_view_presenter_note_set_page (EvViewPresenterNote *self,
                                  gint                 page)
@@ -138,16 +149,8 @@ ev_view_presenter_note_constructed (GObject *obj)
 		self->buffer = gtk_text_buffer_new (NULL);
                 ev_view_presenter_note_set_page (self,
                                                  ev_view_presentation_get_current_page (self->presentation));
-        } else {
-                self->buffer = gtk_text_buffer_new (NULL);
-                gtk_text_buffer_set_text (self->buffer,
-                                          g_strjoin (NULL,
-                                                     "To start using notes with this presentation just create the note file ",
-                                                     uri,
-                                                     NULL),
-                                          -1);
-                gtk_text_view_set_buffer (GTK_TEXT_VIEW (self), self->buffer);
-        }
+        } else
+          self->buffer = NULL;
 
         /* style */
         provider = gtk_css_provider_new ();
