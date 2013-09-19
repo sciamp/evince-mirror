@@ -162,6 +162,8 @@ ev_view_presenter_constructed (GObject *obj)
                           self);
 
         if (with_notes) {
+          GtkWidget *scrolled = gtk_scrolled_window_new (NULL, NULL);
+
           gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                           GTK_ORIENTATION_HORIZONTAL);
 
@@ -173,7 +175,9 @@ ev_view_presenter_constructed (GObject *obj)
                               TRUE, TRUE, 0);
           gtk_box_pack_start (GTK_BOX (left_box), self->timer,
                               FALSE, TRUE, 0);
-          gtk_box_pack_start (GTK_BOX (left_box), self->notes,
+          gtk_container_add (GTK_CONTAINER (scrolled),
+                             GTK_WIDGET (self->notes));
+          gtk_box_pack_start (GTK_BOX (left_box), scrolled,
                               TRUE, TRUE, 0);
         } else {
           gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
