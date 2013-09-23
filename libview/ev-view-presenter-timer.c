@@ -166,7 +166,7 @@ ev_view_presenter_timer_constructed (GObject *obj)
   self->last_slide_time = 0;
 
   self->time_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL,
-                                0);
+                                30);
   gtk_box_pack_start (GTK_BOX (self->time_box),
                       GTK_WIDGET (self->time),
                       TRUE, TRUE, 0);

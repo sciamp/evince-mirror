@@ -182,6 +182,7 @@ ev_view_presenter_constructed (GObject *obj)
         } else {
           gtk_orientable_set_orientation (GTK_ORIENTABLE (self),
                                           GTK_ORIENTATION_VERTICAL);
+          gtk_widget_set_halign (self->timer, GTK_ALIGN_CENTER);
           gtk_box_pack_start (GTK_BOX (self), self->timer,
                               FALSE, TRUE, 0);
           gtk_box_pack_start (GTK_BOX (self), self->presenter_widget,
