@@ -106,12 +106,6 @@ ev_view_presentation_get_state (EvViewPresentation *pview)
         return pview->state;
 }
 
-gdouble
-ev_view_presentation_get_scale (EvViewPresentation *pview)
-{
-        return pview->scale;
-}
-
 /* getter/setter for EvViewPresenter end */
 
 struct _EvViewPresentationClass
